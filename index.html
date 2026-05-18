@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mzimba South EduData Hub</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <section id="splash-screen" class="screen active">
+            <div class="splash-content">
+                <h1>Welcome to Mzimba South EduData Hub</h1>
+                <div class="loading-circle"></div>
+            </div>
+        </section>
+
+        <section id="district-password-screen" class="screen">
+            <div class="glass-box">
+                <h2>District Access</h2>
+                <p>Enter district password to continue</p>
+                <div class="password-field">
+                    <input type="password" id="district-password" placeholder="Enter password">
+                    <button type="button" id="toggle-district-password" class="toggle-password">👁️</button>
+                </div>
+                <button id="district-login-btn" class="btn-primary">Access</button>
+                <p id="district-error" class="error-message"></p>
+            </div>
+        </section>
+
+        <section id="zone-search-screen" class="screen">
+            <div class="glass-box">
+                <h2>Search Zone</h2>
+                <div class="search-field">
+                    <input type="text" id="zone-search" placeholder="Enter/Search Zone">
+                </div>
+                <div id="zone-results" class="results-container"></div>
+            </div>
+        </section>
+
+        <section id="emis-search-screen" class="screen">
+            <div class="glass-box">
+                <h2>Search School by EMIS</h2>
+                <p id="selected-zone-display" class="zone-display"></p>
+                <div class="search-field">
+                    <input type="text" id="emis-search" placeholder="Enter EMIS Number">
+                </div>
+                <div id="emis-results" class="results-container"></div>
+            </div>
+        </section>
+
+        <section id="school-password-screen" class="screen">
+            <div class="glass-box">
+                <h2>School Access</h2>
+                <p id="school-name-display" class="school-display"></p>
+                <div class="password-field">
+                    <input type="password" id="school-password" placeholder="Enter school password">
+                    <button type="button" id="toggle-school-password" class="toggle-password">👁️</button>
+                </div>
+                <button id="school-login-btn" class="btn-primary">Access Dashboard</button>
+                <p id="school-error" class="error-message"></p>
+            </div>
+        </section>
+
+        <section id="school-dashboard-screen" class="screen">
+            <div class="dashboard-header">
+                <h2 id="dashboard-school-name">School Dashboard</h2>
+                <button id="logout-btn" class="btn-secondary">Logout</button>
+            </div>
+            <div class="dashboard-cards">
+                <div class="dashboard-card" data-category="enrollment">
+                    <div class="card-icon">📊</div>
+                    <h3>Enrollment</h3>
+                    <p>View enrollment data</p>
+                </div>
+                <div class="dashboard-card" data-category="pslce">
+                    <div class="card-icon">🎓</div>
+                    <h3>PSLCE Results</h3>
+                    <p>View examination results</p>
+                </div>
+                <div class="dashboard-card" data-category="particulars">
+                    <div class="card-icon">🏫</div>
+                    <h3>School Particulars</h3>
+                    <p>View school information</p>
+                </div>
+                <div class="dashboard-card" data-category="history">
+                    <div class="card-icon">📜</div>
+                    <h3>Upload History</h3>
+                    <p>View data history</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="category-data-screen" class="screen">
+            <div class="category-header">
+                <button id="back-to-dashboard" class="btn-secondary">← Back</button>
+                <h2 id="category-title">Data View</h2>
+            </div>
+            <div id="category-content" class="category-content"></div>
+        </section>
+
+        <section id="admin-login-screen" class="screen modal">
+            <div class="glass-box admin-modal">
+                <button id="close-admin-modal" class="close-modal">✕</button>
+                <h2>Admin Login</h2>
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="admin-username" placeholder="Enter username">
+                </div>
+                <div class="password-field">
+                    <input type="password" id="admin-password" placeholder="Enter password">
+                    <button type="button" id="toggle-admin-password" class="toggle-password">👁️</button>
+                </div>
+                <button id="admin-login-btn" class="btn-primary">Login</button>
+                <p id="admin-error" class="error-message"></p>
+                <p id="admin-recovery-link" class="recovery-link">Forgot password?</p>
+            </div>
+        </section>
+
+        <section id="first-time-setup-screen" class="screen modal">
+            <div class="glass-box setup-modal">
+                <h2>Initial Setup</h2>
+                <p class="setup-warning">⚠️ Save these passwords securely. They will not be shown again.</p>
+                <div class="password-display-group">
+                    <label>District Password</label>
+                    <div class="password-display">
+                        <span id="setup-district-password"></span>
+                        <button id="copy-district-password" class="copy-btn">Copy</button>
+                    </div>
+                </div>
+                <div class="password-display-group">
+                    <label>Admin Password</label>
+                    <div class="password-display">
+                        <span id="setup-admin-password"></span>
+                        <button id="copy-admin-password" class="copy-btn">Copy</button>
+                    </div>
+                </div>
+                <button id="complete-setup-btn" class="btn-primary">I Have Saved the Passwords</button>
+            </div>
+        </section>
+
+        <section id="admin-recovery-screen" class="screen modal">
+            <div class="glass-box recovery-modal">
+                <button id="close-recovery-modal" class="close-modal">✕</button>
+                <h2>Admin Password Recovery</h2>
+                <div class="form-group">
+                    <label>Recovery Email</label>
+                    <input type="email" id="recovery-email" placeholder="Enter recovery email">
+                </div>
+                <button id="verify-recovery-email" class="btn-primary">Verify Email</button>
+                <button id="reset-admin-password" class="btn-primary" style="display: none;">Reset Password</button>
+                <button id="back-to-admin-login" class="btn-secondary" style="display: none;">Back to Login</button>
+                <p id="recovery-error" class="error-message"></p>
+                <div id="new-admin-password" class="new-password-display" style="display: none;">
+                    <label>New Admin Password</label>
+                    <div class="password-display">
+                        <span></span>
+                        <button id="copy-new-password" class="copy-btn">Copy</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="admin-dashboard-screen" class="screen">
+            <div class="admin-header">
+                <h2>Admin Dashboard</h2>
+                <button id="admin-logout-btn" class="btn-secondary">Logout</button>
+            </div>
+            <div class="admin-tabs">
+                <button class="admin-tab active" data-tab="zones">Zones</button>
+                <button class="admin-tab" data-tab="schools">Schools</button>
+                <button class="admin-tab" data-tab="enrollment">Enrollment</button>
+                <button class="admin-tab" data-tab="pslce">PSLCE</button>
+                <button class="admin-tab" data-tab="particulars">Particulars</button>
+                <button class="admin-tab" data-tab="history">History</button>
+            </div>
+            <div class="admin-content">
+                <div id="admin-zones" class="admin-panel active">
+                    <div class="admin-form">
+                        <h3>Add Zone</h3>
+                        <input type="text" id="new-zone-name" placeholder="Zone Name">
+                        <button id="add-zone-btn" class="btn-primary">Add Zone</button>
+                    </div>
+                    <div id="zones-list" class="admin-list"></div>
+                </div>
+                <div id="admin-schools" class="admin-panel">
+                    <div class="admin-form">
+                        <h3>Add School</h3>
+                        <input type="text" id="new-school-emis" placeholder="EMIS Number">
+                        <input type="text" id="new-school-name" placeholder="School Name">
+                        <select id="new-school-zone">
+                            <option value="">Select Zone</option>
+                        </select>
+                        <input type="password" id="new-school-password" placeholder="School Password">
+                        <input type="text" id="new-school-district-number" placeholder="District Number">
+                        <input type="text" id="new-school-division-number" placeholder="Division Number">
+                        <input type="text" id="new-school-constituency" placeholder="Constituency">
+                        <input type="text" id="new-school-ta" placeholder="T/A">
+                        <input type="text" id="new-school-postal-address" placeholder="Postal Address">
+                        <input type="text" id="new-school-distance-primary" placeholder="Distance From Nearest Public Primary School (km)">
+                        <input type="text" id="new-school-distance-tdc" placeholder="Distance To TDC (km)">
+                        <input type="text" id="new-school-year-established" placeholder="Year Established">
+                        <button id="add-school-btn" class="btn-primary">Add School</button>
+                    </div>
+                    <div id="schools-list" class="admin-list"></div>
+                </div>
+                <div id="admin-enrollment" class="admin-panel">
+                    <div class="admin-form">
+                        <h3>Upload Enrollment Data</h3>
+                        <input type="text" id="enrollment-emis" placeholder="EMIS Number">
+                        <input type="text" id="enrollment-male" placeholder="Male Students">
+                        <input type="text" id="enrollment-female" placeholder="Female Students">
+                        <input type="text" id="enrollment-total" placeholder="Total Students">
+                        <input type="text" id="enrollment-year" placeholder="Academic Year">
+                        <button id="upload-enrollment-btn" class="btn-primary">Upload</button>
+                    </div>
+                    <div id="enrollment-list" class="admin-list"></div>
+                </div>
+                <div id="admin-pslce" class="admin-panel">
+                    <div class="admin-form">
+                        <h3>Upload PSLCE Results</h3>
+                        <input type="text" id="pslce-emis" placeholder="EMIS Number">
+                        <input type="text" id="pslce-candidates" placeholder="Number of Candidates">
+                        <input type="text" id="pslce-passed" placeholder="Number Passed">
+                        <input type="text" id="pslce-failed" placeholder="Number Failed">
+                        <input type="text" id="pslce-year" placeholder="Examination Year">
+                        <button id="upload-pslce-btn" class="btn-primary">Upload</button>
+                    </div>
+                    <div id="pslce-list" class="admin-list"></div>
+                </div>
+                <div id="admin-particulars" class="admin-panel">
+                    <div class="admin-form">
+                        <h3>Upload School Particulars</h3>
+                        <input type="text" id="particulars-emis" placeholder="EMIS Number">
+                        <input type="text" id="particulars-headmaster" placeholder="Headmaster Name">
+                        <input type="text" id="particulars-phone" placeholder="Phone Number">
+                        <input type="text" id="particulars-email" placeholder="Email Address">
+                        <input type="text" id="particulars-address" placeholder="Physical Address">
+                        <button id="upload-particulars-btn" class="btn-primary">Upload</button>
+                    </div>
+                    <div id="particulars-list" class="admin-list"></div>
+                </div>
+                <div id="admin-history" class="admin-panel">
+                    <div id="history-list" class="admin-list"></div>
+                </div>
+            </div>
+        </section>
+
+        <div id="admin-progress-indicator" class="admin-progress-indicator">
+            <div class="progress-content">
+                <div class="progress-text">Hold to access admin...</div>
+                <div class="progress-bar-container">
+                    <div id="admin-progress-bar" class="progress-bar"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="success-popup" class="popup">
+            <div class="popup-content">
+                <div class="popup-icon">✓</div>
+                <p id="success-message">Data uploaded successfully</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
