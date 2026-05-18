@@ -85,6 +85,70 @@ body {
     }
 }
 
+.system-icon {
+    display: block;
+    margin: 0 auto;
+    object-fit: contain;
+    animation: iconFadeIn 0.8s ease;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+}
+
+.system-icon::before {
+    content: '🏫';
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    font-size: 2rem;
+    color: white;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.system-icon:not([src])::before,
+.system-icon[src=""]::before {
+    opacity: 1;
+}
+
+.system-icon.splash-icon {
+    width: 120px;
+    height: 120px;
+    margin-bottom: 30px;
+}
+
+.system-icon.screen-icon {
+    width: 80px;
+    height: 80px;
+    margin-bottom: 25px;
+}
+
+.system-icon.header-icon {
+    width: 50px;
+    height: 50px;
+    margin: 0 15px 0 0;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.system-icon.modal-icon {
+    width: 70px;
+    height: 70px;
+    margin-bottom: 20px;
+}
+
+@keyframes iconFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
 .glass-box {
     background: rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(20px);
@@ -917,6 +981,30 @@ body {
         font-size: 1.8rem;
     }
 
+    .system-icon.splash-icon {
+        width: 100px;
+        height: 100px;
+        margin-bottom: 25px;
+    }
+
+    .system-icon.screen-icon {
+        width: 70px;
+        height: 70px;
+        margin-bottom: 20px;
+    }
+
+    .system-icon.header-icon {
+        width: 40px;
+        height: 40px;
+        margin: 0 10px 0 0;
+    }
+
+    .system-icon.modal-icon {
+        width: 60px;
+        height: 60px;
+        margin-bottom: 15px;
+    }
+
     .particulars-grid {
         grid-template-columns: 1fr;
     }
@@ -952,6 +1040,30 @@ body {
 }
 
 @media (max-width: 480px) {
+    .system-icon.splash-icon {
+        width: 80px;
+        height: 80px;
+        margin-bottom: 20px;
+    }
+
+    .system-icon.screen-icon {
+        width: 60px;
+        height: 60px;
+        margin-bottom: 15px;
+    }
+
+    .system-icon.header-icon {
+        width: 35px;
+        height: 35px;
+        margin: 0 8px 0 0;
+    }
+
+    .system-icon.modal-icon {
+        width: 50px;
+        height: 50px;
+        margin-bottom: 12px;
+    }
+
     .screen {
         padding: 10px;
     }
