@@ -1,84 +1,13 @@
-const PasswordManager = {
-    generateSecurePassword(length = 16) {
-        const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:,.<>?';
-        let password = '';
-        const array = new Uint32Array(length);
-        crypto.getRandomValues(array);
-        for (let i = 0; i < length; i++) {
-            password += charset[array[i] % charset.length];
-        }
-        return password;
-    },
-
-    encodePassword(password) {
-        return btoa(password);
-    },
-
-    decodePassword(encoded) {
-        return atob(encoded);
-    },
-
-    generateDistrictPassword() {
-        const stored = localStorage.getItem('mzimba_district_password');
-        if (stored) {
-            return this.decodePassword(stored);
-        }
-        const password = this.generateSecurePassword(16);
-        localStorage.setItem('mzimba_district_password', this.encodePassword(password));
-        return password;
-    },
-
-    generateAdminPassword() {
-        const stored = localStorage.getItem('mzimba_admin_password');
-        if (stored) {
-            return this.decodePassword(stored);
-        }
-        const password = this.generateSecurePassword(20);
-        localStorage.setItem('mzimba_admin_password', this.encodePassword(password));
-        return password;
-    },
-
-    getDistrictPassword() {
-        const stored = localStorage.getItem('mzimba_district_password');
-        if (!stored) return null;
-        return this.decodePassword(stored);
-    },
-
-    getAdminPassword() {
-        const stored = localStorage.getItem('mzimba_admin_password');
-        if (!stored) return null;
-        return this.decodePassword(stored);
-    },
-
-    resetAdminPassword() {
-        const newPassword = this.generateSecurePassword(20);
-        localStorage.setItem('mzimba_admin_password', this.encodePassword(newPassword));
-        return newPassword;
-    },
-
-    isFirstTimeSetup() {
-        return !localStorage.getItem('mzimba_district_password') || !localStorage.getItem('mzimba_admin_password');
-    },
-
-    markSetupComplete() {
-        localStorage.setItem('mzimba_setup_complete', 'true');
-    },
-
-    isSetupComplete() {
-        return localStorage.getItem('mzimba_setup_complete') === 'true';
-    }
-};
-
 const AppState = {
     currentScreen: 'splash-screen',
     selectedZone: null,
     selectedSchool: null,
     isAdminLoggedIn: false,
     isSchoolLoggedIn: false,
-    districtPassword: null,
-    adminUsername: 'Martin Kaonga',
-    adminPassword: null,
-    recoveryEmail: 'martinkaonga@yahoo.com'
+    districtPassword: Config.districtPassword,
+    adminUsername: Config.adminUsername,
+    adminPassword: Config.adminPassword,
+    recoveryEmail: Config.recoveryEmail
 };
 
 const Screens = {
@@ -95,7 +24,6 @@ const Screens = {
             'category-data-screen': document.getElementById('category-data-screen'),
             'admin-login-screen': document.getElementById('admin-login-screen'),
             'admin-dashboard-screen': document.getElementById('admin-dashboard-screen'),
-            'first-time-setup-screen': document.getElementById('first-time-setup-screen'),
             'admin-recovery-screen': document.getElementById('admin-recovery-screen')
         };
     },
@@ -112,14 +40,7 @@ const Screens = {
 const SplashScreen = {
     init() {
         setTimeout(() => {
-            if (PasswordManager.isFirstTimeSetup()) {
-                FirstTimeSetupScreen.init();
-                Screens.show('first-time-setup-screen');
-            } else {
-                AppState.districtPassword = PasswordManager.getDistrictPassword();
-                AppState.adminPassword = PasswordManager.getAdminPassword();
-                Screens.show('district-password-screen');
-            }
+            Screens.show('district-password-screen');
         }, 5000);
     }
 };
@@ -130,10 +51,6 @@ const DistrictPasswordScreen = {
         const toggleBtn = document.getElementById('toggle-district-password');
         const loginBtn = document.getElementById('district-login-btn');
         const errorDisplay = document.getElementById('district-error');
-        
-        if (!AppState.districtPassword) {
-            AppState.districtPassword = PasswordManager.getDistrictPassword();
-        }
         
         toggleBtn.addEventListener('click', () => {
             if (passwordInput.type === 'password') {
@@ -494,48 +411,6 @@ const CategoryDataView = {
     }
 };
 
-const FirstTimeSetupScreen = {
-    districtPassword: null,
-    adminPassword: null,
-    
-    init() {
-        this.districtPassword = PasswordManager.generateDistrictPassword();
-        this.adminPassword = PasswordManager.generateAdminPassword();
-        
-        const districtPassDisplay = document.getElementById('setup-district-password');
-        const adminPassDisplay = document.getElementById('setup-admin-password');
-        const copyDistrictBtn = document.getElementById('copy-district-password');
-        const copyAdminBtn = document.getElementById('copy-admin-password');
-        const completeBtn = document.getElementById('complete-setup-btn');
-        
-        districtPassDisplay.textContent = this.districtPassword;
-        adminPassDisplay.textContent = this.adminPassword;
-        
-        copyDistrictBtn.addEventListener('click', () => {
-            navigator.clipboard.writeText(this.districtPassword);
-            copyDistrictBtn.textContent = 'Copied!';
-            setTimeout(() => {
-                copyDistrictBtn.textContent = 'Copy';
-            }, 2000);
-        });
-        
-        copyAdminBtn.addEventListener('click', () => {
-            navigator.clipboard.writeText(this.adminPassword);
-            copyAdminBtn.textContent = 'Copied!';
-            setTimeout(() => {
-                copyAdminBtn.textContent = 'Copy';
-            }, 2000);
-        });
-        
-        completeBtn.addEventListener('click', () => {
-            PasswordManager.markSetupComplete();
-            AppState.districtPassword = this.districtPassword;
-            AppState.adminPassword = this.adminPassword;
-            Screens.show('district-password-screen');
-        });
-    }
-};
-
 const AdminRecoveryScreen = {
     init() {
         const emailInput = document.getElementById('recovery-email');
@@ -561,11 +436,10 @@ const AdminRecoveryScreen = {
         });
         
         resetBtn.addEventListener('click', () => {
-            newPassword = PasswordManager.resetAdminPassword();
+            newPassword = Config.adminPassword;
             AppState.adminPassword = newPassword;
-            newPassDisplay.textContent = newPassword;
+            newPassDisplay.querySelector('span').textContent = newPassword;
             newPassDisplay.style.display = 'block';
-            copyNewPassBtn.style.display = 'block';
             resetBtn.style.display = 'none';
             backToLoginBtn.style.display = 'block';
         });
@@ -673,10 +547,6 @@ const AdminPanel = {
         const loginBtn = document.getElementById('admin-login-btn');
         const errorDisplay = document.getElementById('admin-error');
         const recoveryLink = document.getElementById('admin-recovery-link');
-        
-        if (!AppState.adminPassword) {
-            AppState.adminPassword = PasswordManager.getAdminPassword();
-        }
         
         closeBtn.addEventListener('click', () => {
             Screens.show(AppState.currentScreen === 'admin-login-screen' ? 'district-password-screen' : AppState.currentScreen);
