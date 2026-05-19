@@ -6,6 +6,7 @@
     <title>Mzimba South EduData Hub</title>
     <link rel="stylesheet" href="style.css">
     <link rel="icon" type="image/png" href="./Icon.png">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div id="app">
@@ -75,6 +76,11 @@
                 <button id="logout-btn" class="btn-secondary">Logout</button>
             </div>
             <div class="dashboard-cards">
+                <div class="dashboard-card" data-category="particulars">
+                    <div class="card-icon">🏫</div>
+                    <h3>School Particulars</h3>
+                    <p>View school information</p>
+                </div>
                 <div class="dashboard-card" data-category="enrollment">
                     <div class="card-icon">📊</div>
                     <h3>Enrollment</h3>
@@ -84,11 +90,6 @@
                     <div class="card-icon">🎓</div>
                     <h3>PSLCE Results</h3>
                     <p>View examination results</p>
-                </div>
-                <div class="dashboard-card" data-category="particulars">
-                    <div class="card-icon">🏫</div>
-                    <h3>School Particulars</h3>
-                    <p>View school information</p>
                 </div>
                 <div class="dashboard-card" data-category="history">
                     <div class="card-icon">📜</div>
@@ -155,10 +156,10 @@
             </div>
             <div class="admin-tabs">
                 <button class="admin-tab active" data-tab="zones">Zones</button>
+                <button class="admin-tab" data-tab="particulars">Particulars</button>
                 <button class="admin-tab" data-tab="schools">Schools</button>
                 <button class="admin-tab" data-tab="enrollment">Enrollment</button>
                 <button class="admin-tab" data-tab="pslce">PSLCE</button>
-                <button class="admin-tab" data-tab="particulars">Particulars</button>
                 <button class="admin-tab" data-tab="history">History</button>
             </div>
             <div class="admin-content">
@@ -169,6 +170,19 @@
                         <button id="add-zone-btn" class="btn-primary">Add Zone</button>
                     </div>
                     <div id="zones-list" class="admin-list"></div>
+                </div>
+                <div id="admin-particulars" class="admin-panel">
+                    <div class="admin-form">
+                        <h3>Upload School Particulars</h3>
+                        <input type="text" id="particulars-emis" placeholder="EMIS Number">
+                        <input type="text" id="particulars-headmaster" placeholder="Headmaster Name">
+                        <input type="text" id="particulars-phone" placeholder="Phone Number">
+                        <input type="text" id="particulars-email" placeholder="Email Address">
+                        <input type="text" id="particulars-address" placeholder="Physical Address">
+                        <input type="text" id="particulars-distance-dem" placeholder="Distance to the DEM's Office (km)">
+                        <button id="upload-particulars-btn" class="btn-primary">Upload</button>
+                    </div>
+                    <div id="particulars-list" class="admin-list"></div>
                 </div>
                 <div id="admin-schools" class="admin-panel">
                     <div class="admin-form">
@@ -194,11 +208,28 @@
                 <div id="admin-enrollment" class="admin-panel">
                     <div class="admin-form">
                         <h3>Upload Enrollment Data</h3>
-                        <input type="text" id="enrollment-emis" placeholder="EMIS Number">
-                        <input type="text" id="enrollment-male" placeholder="Male Students">
-                        <input type="text" id="enrollment-female" placeholder="Female Students">
-                        <input type="text" id="enrollment-total" placeholder="Total Students">
-                        <input type="text" id="enrollment-year" placeholder="Academic Year">
+                        <select id="enrollment-school" class="searchable-select">
+                            <option value="">Select School</option>
+                        </select>
+                        <select id="enrollment-year">
+                            <option value="">Select Year</option>
+                        </select>
+                        <input type="text" id="enrollment-std1m" placeholder="STD1 Male">
+                        <input type="text" id="enrollment-std1f" placeholder="STD1 Female">
+                        <input type="text" id="enrollment-std2m" placeholder="STD2 Male">
+                        <input type="text" id="enrollment-std2f" placeholder="STD2 Female">
+                        <input type="text" id="enrollment-std3m" placeholder="STD3 Male">
+                        <input type="text" id="enrollment-std3f" placeholder="STD3 Female">
+                        <input type="text" id="enrollment-std4m" placeholder="STD4 Male">
+                        <input type="text" id="enrollment-std4f" placeholder="STD4 Female">
+                        <input type="text" id="enrollment-std5m" placeholder="STD5 Male">
+                        <input type="text" id="enrollment-std5f" placeholder="STD5 Female">
+                        <input type="text" id="enrollment-std6m" placeholder="STD6 Male">
+                        <input type="text" id="enrollment-std6f" placeholder="STD6 Female">
+                        <input type="text" id="enrollment-std7m" placeholder="STD7 Male">
+                        <input type="text" id="enrollment-std7f" placeholder="STD7 Female">
+                        <input type="text" id="enrollment-std8m" placeholder="STD8 Male">
+                        <input type="text" id="enrollment-std8f" placeholder="STD8 Female">
                         <button id="upload-enrollment-btn" class="btn-primary">Upload</button>
                     </div>
                     <div id="enrollment-list" class="admin-list"></div>
@@ -206,26 +237,33 @@
                 <div id="admin-pslce" class="admin-panel">
                     <div class="admin-form">
                         <h3>Upload PSLCE Results</h3>
-                        <input type="text" id="pslce-emis" placeholder="EMIS Number">
-                        <input type="text" id="pslce-candidates" placeholder="Number of Candidates">
-                        <input type="text" id="pslce-passed" placeholder="Number Passed">
-                        <input type="text" id="pslce-failed" placeholder="Number Failed">
-                        <input type="text" id="pslce-year" placeholder="Examination Year">
+                        <select id="pslce-school" class="searchable-select">
+                            <option value="">Select School</option>
+                        </select>
+                        <select id="pslce-year">
+                            <option value="">Select Year</option>
+                        </select>
+                        <input type="text" id="pslce-entered-m" placeholder="ENTERED M">
+                        <input type="text" id="pslce-entered-f" placeholder="ENTERED F">
+                        <input type="text" id="pslce-sat-m" placeholder="SAT M">
+                        <input type="text" id="pslce-sat-f" placeholder="SAT F">
+                        <input type="text" id="pslce-passed-m" placeholder="PASSED M">
+                        <input type="text" id="pslce-passed-f" placeholder="PASSED F">
+                        <input type="text" id="pslce-failed-m" placeholder="FAILED M">
+                        <input type="text" id="pslce-failed-f" placeholder="FAILED F">
+                        <input type="text" id="pslce-national-sec-m" placeholder="NATIONAL SEC SCHOOL M">
+                        <input type="text" id="pslce-national-sec-f" placeholder="NATIONAL SEC SCHOOL F">
+                        <input type="text" id="pslce-district-ss-m" placeholder="DISTRICT SS M">
+                        <input type="text" id="pslce-district-ss-f" placeholder="DISTRICT SS F">
+                        <input type="text" id="pslce-day-sec-m" placeholder="DAY SEC SCHOOL M">
+                        <input type="text" id="pslce-day-sec-f" placeholder="DAY SEC SCHOOL F">
+                        <input type="text" id="pslce-cdss-m" placeholder="CDSS M">
+                        <input type="text" id="pslce-cdss-f" placeholder="CDSS F">
+                        <input type="text" id="pslce-total-selected-m" placeholder="TOTAL SELECTED M">
+                        <input type="text" id="pslce-total-selected-f" placeholder="TOTAL SELECTED F">
                         <button id="upload-pslce-btn" class="btn-primary">Upload</button>
                     </div>
                     <div id="pslce-list" class="admin-list"></div>
-                </div>
-                <div id="admin-particulars" class="admin-panel">
-                    <div class="admin-form">
-                        <h3>Upload School Particulars</h3>
-                        <input type="text" id="particulars-emis" placeholder="EMIS Number">
-                        <input type="text" id="particulars-headmaster" placeholder="Headmaster Name">
-                        <input type="text" id="particulars-phone" placeholder="Phone Number">
-                        <input type="text" id="particulars-email" placeholder="Email Address">
-                        <input type="text" id="particulars-address" placeholder="Physical Address">
-                        <button id="upload-particulars-btn" class="btn-primary">Upload</button>
-                    </div>
-                    <div id="particulars-list" class="admin-list"></div>
                 </div>
                 <div id="admin-history" class="admin-panel">
                     <div id="history-list" class="admin-list"></div>

@@ -971,6 +971,32 @@ body {
     line-height: 1.4;
 }
 
+.searchable-select-wrapper {
+    margin-bottom: 15px;
+}
+
+.searchable-select-input {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    font-size: 0.95rem;
+    outline: none;
+    transition: all 0.3s ease;
+    margin-bottom: 10px;
+}
+
+.searchable-select-input::placeholder {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.searchable-select-input:focus {
+    background: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+}
+
 @media (max-width: 768px) {
     .glass-box {
         padding: 30px 20px;

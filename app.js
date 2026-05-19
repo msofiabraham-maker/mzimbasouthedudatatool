@@ -278,10 +278,25 @@ const CategoryDataView = {
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Academic Year</th>
-                            <th>Male</th>
-                            <th>Female</th>
-                            <th>Total</th>
+                            <th>Year</th>
+                            <th>STD1 M</th>
+                            <th>STD1 F</th>
+                            <th>STD2 M</th>
+                            <th>STD2 F</th>
+                            <th>STD3 M</th>
+                            <th>STD3 F</th>
+                            <th>STD4 M</th>
+                            <th>STD4 F</th>
+                            <th>STD5 M</th>
+                            <th>STD5 F</th>
+                            <th>STD6 M</th>
+                            <th>STD6 F</th>
+                            <th>STD7 M</th>
+                            <th>STD7 F</th>
+                            <th>STD8 M</th>
+                            <th>STD8 F</th>
+                            <th>TOTAL M</th>
+                            <th>TOTAL F</th>
                             <th>Date Uploaded</th>
                         </tr>
                     </thead>
@@ -289,24 +304,56 @@ const CategoryDataView = {
                         ${data.map(item => `
                             <tr>
                                 <td>${item.year}</td>
-                                <td>${item.male}</td>
-                                <td>${item.female}</td>
-                                <td>${item.total}</td>
+                                <td>${item.std1m || 0}</td>
+                                <td>${item.std1f || 0}</td>
+                                <td>${item.std2m || 0}</td>
+                                <td>${item.std2f || 0}</td>
+                                <td>${item.std3m || 0}</td>
+                                <td>${item.std3f || 0}</td>
+                                <td>${item.std4m || 0}</td>
+                                <td>${item.std4f || 0}</td>
+                                <td>${item.std5m || 0}</td>
+                                <td>${item.std5f || 0}</td>
+                                <td>${item.std6m || 0}</td>
+                                <td>${item.std6f || 0}</td>
+                                <td>${item.std7m || 0}</td>
+                                <td>${item.std7f || 0}</td>
+                                <td>${item.std8m || 0}</td>
+                                <td>${item.std8f || 0}</td>
+                                <td>${item.totalM || 0}</td>
+                                <td>${item.totalF || 0}</td>
                                 <td>${new Date(item.timestamp).toLocaleDateString()}</td>
                             </tr>
                         `).join('')}
                     </tbody>
                 </table>
+                <canvas id="enrollment-chart" style="margin-top: 30px; max-height: 400px;"></canvas>
             `;
+            this.generateEnrollmentChart(data);
         } else if (category === 'pslce') {
             categoryContent.innerHTML = `
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Examination Year</th>
-                            <th>Candidates</th>
-                            <th>Passed</th>
-                            <th>Failed</th>
+                            <th>Year</th>
+                            <th>ENTERED M</th>
+                            <th>ENTERED F</th>
+                            <th>SAT M</th>
+                            <th>SAT F</th>
+                            <th>PASSED M</th>
+                            <th>PASSED F</th>
+                            <th>FAILED M</th>
+                            <th>FAILED F</th>
+                            <th>NAT SEC M</th>
+                            <th>NAT SEC F</th>
+                            <th>DIST SS M</th>
+                            <th>DIST SS F</th>
+                            <th>DAY SEC M</th>
+                            <th>DAY SEC F</th>
+                            <th>CDSS M</th>
+                            <th>CDSS F</th>
+                            <th>TOTAL SEL M</th>
+                            <th>TOTAL SEL F</th>
                             <th>Date Uploaded</th>
                         </tr>
                     </thead>
@@ -314,17 +361,37 @@ const CategoryDataView = {
                         ${data.map(item => `
                             <tr>
                                 <td>${item.year}</td>
-                                <td>${item.candidates}</td>
-                                <td>${item.passed}</td>
-                                <td>${item.failed}</td>
+                                <td>${item.enteredM || 0}</td>
+                                <td>${item.enteredF || 0}</td>
+                                <td>${item.satM || 0}</td>
+                                <td>${item.satF || 0}</td>
+                                <td>${item.passedM || 0}</td>
+                                <td>${item.passedF || 0}</td>
+                                <td>${item.failedM || 0}</td>
+                                <td>${item.failedF || 0}</td>
+                                <td>${item.nationalSecM || 0}</td>
+                                <td>${item.nationalSecF || 0}</td>
+                                <td>${item.districtSsM || 0}</td>
+                                <td>${item.districtSsF || 0}</td>
+                                <td>${item.daySecM || 0}</td>
+                                <td>${item.daySecF || 0}</td>
+                                <td>${item.cdssM || 0}</td>
+                                <td>${item.cdssF || 0}</td>
+                                <td>${item.totalSelectedM || 0}</td>
+                                <td>${item.totalSelectedF || 0}</td>
                                 <td>${new Date(item.timestamp).toLocaleDateString()}</td>
                             </tr>
                         `).join('')}
                     </tbody>
                 </table>
+                <canvas id="pslce-chart" style="margin-top: 30px; max-height: 400px;"></canvas>
             `;
+            this.generatePSLCEChart(data);
         } else if (category === 'particulars') {
             const school = DataStore.getSchoolByEMIS(AppState.selectedSchool.emis);
+            const particulars = DataStore.getParticularsByEMIS(AppState.selectedSchool.emis);
+            const latestParticulars = particulars.length > 0 ? particulars[particulars.length - 1] : null;
+            
             if (school) {
                 categoryContent.innerHTML = `
                     <div class="school-particulars-card">
@@ -377,6 +444,33 @@ const CategoryDataView = {
                                 </div>
                             </div>
                         </div>
+                        ${latestParticulars ? `
+                        <div class="particulars-section" style="margin-top: 30px;">
+                            <h3>Contact Information</h3>
+                            <div class="particulars-grid">
+                                <div class="particular-item">
+                                    <label>Headmaster</label>
+                                    <p>${latestParticulars.headmaster || 'N/A'}</p>
+                                </div>
+                                <div class="particular-item">
+                                    <label>Phone</label>
+                                    <p>${latestParticulars.phone || 'N/A'}</p>
+                                </div>
+                                <div class="particular-item">
+                                    <label>Email</label>
+                                    <p>${latestParticulars.email || 'N/A'}</p>
+                                </div>
+                                <div class="particular-item">
+                                    <label>Physical Address</label>
+                                    <p>${latestParticulars.address || 'N/A'}</p>
+                                </div>
+                                <div class="particular-item">
+                                    <label>Distance to the DEM's Office</label>
+                                    <p>${latestParticulars.distanceDem ? latestParticulars.distanceDem + ' km' : 'N/A'}</p>
+                                </div>
+                            </div>
+                        </div>
+                        ` : ''}
                     </div>
                 `;
             } else {
@@ -623,6 +717,68 @@ const AdminPanel = {
         this.loadParticulars();
         this.loadHistory();
         this.populateZoneSelect();
+        this.populateYearSelects();
+        this.populateSchoolSelects();
+    },
+
+    populateYearSelects() {
+        const enrollmentYearSelect = document.getElementById('enrollment-year');
+        const pslceYearSelect = document.getElementById('pslce-year');
+        
+        let yearOptions = '<option value="">Select Year</option>';
+        for (let year = 2000; year <= 2080; year++) {
+            yearOptions += `<option value="${year}">${year}</option>`;
+        }
+        
+        if (enrollmentYearSelect) {
+            enrollmentYearSelect.innerHTML = yearOptions;
+        }
+        if (pslceYearSelect) {
+            pslceYearSelect.innerHTML = yearOptions;
+        }
+    },
+
+    populateSchoolSelects() {
+        const enrollmentSchoolSelect = document.getElementById('enrollment-school');
+        const pslceSchoolSelect = document.getElementById('pslce-school');
+        const schools = DataStore.getSchools();
+        
+        let schoolOptions = '<option value="">Select School</option>';
+        schools.forEach(school => {
+            schoolOptions += `<option value="${school.emis}">${school.name} (EMIS: ${school.emis})</option>`;
+        });
+        
+        if (enrollmentSchoolSelect) {
+            enrollmentSchoolSelect.innerHTML = schoolOptions;
+            this.makeSearchable(enrollmentSchoolSelect);
+        }
+        if (pslceSchoolSelect) {
+            pslceSchoolSelect.innerHTML = schoolOptions;
+            this.makeSearchable(pslceSchoolSelect);
+        }
+    },
+
+    makeSearchable(selectElement) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'searchable-select-wrapper';
+        selectElement.parentNode.insertBefore(wrapper, selectElement);
+        wrapper.appendChild(selectElement);
+
+        const searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.className = 'searchable-select-input';
+        searchInput.placeholder = 'Search...';
+        wrapper.insertBefore(searchInput, selectElement);
+
+        searchInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            const options = selectElement.options;
+            for (let i = 1; i < options.length; i++) {
+                const option = options[i];
+                const text = option.text.toLowerCase();
+                option.style.display = text.includes(searchTerm) ? '' : 'none';
+            }
+        });
     },
     
     populateZoneSelect() {
@@ -630,6 +786,7 @@ const AdminPanel = {
         const zones = DataStore.getZones();
         zoneSelect.innerHTML = '<option value="">Select Zone</option>' + 
             zones.map(zone => `<option value="${zone.name}">${zone.name}</option>`).join('');
+        this.makeSearchable(zoneSelect);
     },
     
     initZonesPanel() {
@@ -639,11 +796,15 @@ const AdminPanel = {
         addBtn.addEventListener('click', () => {
             const zoneName = zoneNameInput.value.trim();
             if (zoneName) {
-                DataStore.addZone(zoneName);
-                zoneNameInput.value = '';
-                this.loadZones();
-                this.populateZoneSelect();
-                this.showSuccess('Zone added successfully');
+                try {
+                    DataStore.addZone(zoneName);
+                    zoneNameInput.value = '';
+                    this.loadZones();
+                    this.populateZoneSelect();
+                    this.showSuccess('Zone added successfully');
+                } catch (error) {
+                    alert(error.message);
+                }
             }
         });
     },
@@ -717,21 +878,26 @@ const AdminPanel = {
             const yearEstablished = yearEstablishedInput.value.trim();
             
             if (emis && name && zone && password) {
-                DataStore.addSchool(emis, name, zone, password, districtNumber, divisionNumber, constituency, ta, postalAddress, distanceFromNearestPrimary, distanceToTDC, yearEstablished);
-                emisInput.value = '';
-                nameInput.value = '';
-                zoneSelect.value = '';
-                passwordInput.value = '';
-                districtNumberInput.value = '';
-                divisionNumberInput.value = '';
-                constituencyInput.value = '';
-                taInput.value = '';
-                postalAddressInput.value = '';
-                distancePrimaryInput.value = '';
-                distanceTDCInput.value = '';
-                yearEstablishedInput.value = '';
-                this.loadSchools();
-                this.showSuccess('School added successfully');
+                try {
+                    DataStore.addSchool(emis, name, zone, password, districtNumber, divisionNumber, constituency, ta, postalAddress, distanceFromNearestPrimary, distanceToTDC, yearEstablished);
+                    emisInput.value = '';
+                    nameInput.value = '';
+                    zoneSelect.value = '';
+                    passwordInput.value = '';
+                    districtNumberInput.value = '';
+                    divisionNumberInput.value = '';
+                    constituencyInput.value = '';
+                    taInput.value = '';
+                    postalAddressInput.value = '';
+                    distancePrimaryInput.value = '';
+                    distanceTDCInput.value = '';
+                    yearEstablishedInput.value = '';
+                    this.loadSchools();
+                    this.populateSchoolSelects();
+                    this.showSuccess('School added successfully');
+                } catch (error) {
+                    alert(error.message);
+                }
             }
         });
     },
@@ -814,19 +980,67 @@ const AdminPanel = {
         const uploadBtn = document.getElementById('upload-enrollment-btn');
         
         uploadBtn.addEventListener('click', () => {
-            const emis = document.getElementById('enrollment-emis').value.trim();
-            const male = document.getElementById('enrollment-male').value.trim();
-            const female = document.getElementById('enrollment-female').value.trim();
-            const total = document.getElementById('enrollment-total').value.trim();
+            const schoolEmis = document.getElementById('enrollment-school').value.trim();
             const year = document.getElementById('enrollment-year').value.trim();
             
-            if (emis && male && female && total && year) {
-                DataStore.addEnrollment({ emis, male, female, total, year });
-                document.getElementById('enrollment-emis').value = '';
-                document.getElementById('enrollment-male').value = '';
-                document.getElementById('enrollment-female').value = '';
-                document.getElementById('enrollment-total').value = '';
+            const std1m = document.getElementById('enrollment-std1m').value.trim();
+            const std1f = document.getElementById('enrollment-std1f').value.trim();
+            const std2m = document.getElementById('enrollment-std2m').value.trim();
+            const std2f = document.getElementById('enrollment-std2f').value.trim();
+            const std3m = document.getElementById('enrollment-std3m').value.trim();
+            const std3f = document.getElementById('enrollment-std3f').value.trim();
+            const std4m = document.getElementById('enrollment-std4m').value.trim();
+            const std4f = document.getElementById('enrollment-std4f').value.trim();
+            const std5m = document.getElementById('enrollment-std5m').value.trim();
+            const std5f = document.getElementById('enrollment-std5f').value.trim();
+            const std6m = document.getElementById('enrollment-std6m').value.trim();
+            const std6f = document.getElementById('enrollment-std6f').value.trim();
+            const std7m = document.getElementById('enrollment-std7m').value.trim();
+            const std7f = document.getElementById('enrollment-std7f').value.trim();
+            const std8m = document.getElementById('enrollment-std8m').value.trim();
+            const std8f = document.getElementById('enrollment-std8f').value.trim();
+            
+            if (schoolEmis && year) {
+                const totalM = (parseInt(std1m) || 0) + (parseInt(std2m) || 0) + (parseInt(std3m) || 0) + 
+                               (parseInt(std4m) || 0) + (parseInt(std5m) || 0) + (parseInt(std6m) || 0) + 
+                               (parseInt(std7m) || 0) + (parseInt(std8m) || 0);
+                const totalF = (parseInt(std1f) || 0) + (parseInt(std2f) || 0) + (parseInt(std3f) || 0) + 
+                               (parseInt(std4f) || 0) + (parseInt(std5f) || 0) + (parseInt(std6f) || 0) + 
+                               (parseInt(std7f) || 0) + (parseInt(std8f) || 0);
+                
+                DataStore.addEnrollment({ 
+                    emis: schoolEmis, 
+                    year,
+                    std1m, std1f,
+                    std2m, std2f,
+                    std3m, std3f,
+                    std4m, std4f,
+                    std5m, std5f,
+                    std6m, std6f,
+                    std7m, std7f,
+                    std8m, std8f,
+                    totalM, totalF
+                });
+                
+                document.getElementById('enrollment-school').value = '';
                 document.getElementById('enrollment-year').value = '';
+                document.getElementById('enrollment-std1m').value = '';
+                document.getElementById('enrollment-std1f').value = '';
+                document.getElementById('enrollment-std2m').value = '';
+                document.getElementById('enrollment-std2f').value = '';
+                document.getElementById('enrollment-std3m').value = '';
+                document.getElementById('enrollment-std3f').value = '';
+                document.getElementById('enrollment-std4m').value = '';
+                document.getElementById('enrollment-std4f').value = '';
+                document.getElementById('enrollment-std5m').value = '';
+                document.getElementById('enrollment-std5f').value = '';
+                document.getElementById('enrollment-std6m').value = '';
+                document.getElementById('enrollment-std6f').value = '';
+                document.getElementById('enrollment-std7m').value = '';
+                document.getElementById('enrollment-std7f').value = '';
+                document.getElementById('enrollment-std8m').value = '';
+                document.getElementById('enrollment-std8f').value = '';
+                
                 this.loadEnrollment();
                 this.showSuccess('Enrollment data uploaded successfully');
             }
@@ -840,8 +1054,9 @@ const AdminPanel = {
         enrollmentList.innerHTML = enrollment.map(item => `
             <div class="list-item" data-id="${item.id}">
                 <div class="list-item-info">
-                    <h4>EMIS: ${item.emis} | Year: ${item.year}</h4>
-                    <p>Male: ${item.male} | Female: ${item.female} | Total: ${item.total}</p>
+                    <h4>${item.schoolName || item.emis} | Year: ${item.year}</h4>
+                    <p>Zone: ${item.zone || 'N/A'}</p>
+                    <p>Total M: ${item.totalM || 0} | Total F: ${item.totalF || 0}</p>
                 </div>
                 <div class="list-item-actions">
                     <button class="btn-edit" onclick="AdminPanel.editEnrollment(${item.id})">Edit</button>
@@ -889,19 +1104,64 @@ const AdminPanel = {
         const uploadBtn = document.getElementById('upload-pslce-btn');
         
         uploadBtn.addEventListener('click', () => {
-            const emis = document.getElementById('pslce-emis').value.trim();
-            const candidates = document.getElementById('pslce-candidates').value.trim();
-            const passed = document.getElementById('pslce-passed').value.trim();
-            const failed = document.getElementById('pslce-failed').value.trim();
+            const schoolEmis = document.getElementById('pslce-school').value.trim();
             const year = document.getElementById('pslce-year').value.trim();
             
-            if (emis && candidates && passed && failed && year) {
-                DataStore.addPSLCEResult({ emis, candidates, passed, failed, year });
-                document.getElementById('pslce-emis').value = '';
-                document.getElementById('pslce-candidates').value = '';
-                document.getElementById('pslce-passed').value = '';
-                document.getElementById('pslce-failed').value = '';
+            const enteredM = document.getElementById('pslce-entered-m').value.trim();
+            const enteredF = document.getElementById('pslce-entered-f').value.trim();
+            const satM = document.getElementById('pslce-sat-m').value.trim();
+            const satF = document.getElementById('pslce-sat-f').value.trim();
+            const passedM = document.getElementById('pslce-passed-m').value.trim();
+            const passedF = document.getElementById('pslce-passed-f').value.trim();
+            const failedM = document.getElementById('pslce-failed-m').value.trim();
+            const failedF = document.getElementById('pslce-failed-f').value.trim();
+            const nationalSecM = document.getElementById('pslce-national-sec-m').value.trim();
+            const nationalSecF = document.getElementById('pslce-national-sec-f').value.trim();
+            const districtSsM = document.getElementById('pslce-district-ss-m').value.trim();
+            const districtSsF = document.getElementById('pslce-district-ss-f').value.trim();
+            const daySecM = document.getElementById('pslce-day-sec-m').value.trim();
+            const daySecF = document.getElementById('pslce-day-sec-f').value.trim();
+            const cdssM = document.getElementById('pslce-cdss-m').value.trim();
+            const cdssF = document.getElementById('pslce-cdss-f').value.trim();
+            const totalSelectedM = document.getElementById('pslce-total-selected-m').value.trim();
+            const totalSelectedF = document.getElementById('pslce-total-selected-f').value.trim();
+            
+            if (schoolEmis && year) {
+                DataStore.addPSLCEResult({ 
+                    emis: schoolEmis, 
+                    year,
+                    enteredM, enteredF,
+                    satM, satF,
+                    passedM, passedF,
+                    failedM, failedF,
+                    nationalSecM, nationalSecF,
+                    districtSsM, districtSsF,
+                    daySecM, daySecF,
+                    cdssM, cdssF,
+                    totalSelectedM, totalSelectedF
+                });
+                
+                document.getElementById('pslce-school').value = '';
                 document.getElementById('pslce-year').value = '';
+                document.getElementById('pslce-entered-m').value = '';
+                document.getElementById('pslce-entered-f').value = '';
+                document.getElementById('pslce-sat-m').value = '';
+                document.getElementById('pslce-sat-f').value = '';
+                document.getElementById('pslce-passed-m').value = '';
+                document.getElementById('pslce-passed-f').value = '';
+                document.getElementById('pslce-failed-m').value = '';
+                document.getElementById('pslce-failed-f').value = '';
+                document.getElementById('pslce-national-sec-m').value = '';
+                document.getElementById('pslce-national-sec-f').value = '';
+                document.getElementById('pslce-district-ss-m').value = '';
+                document.getElementById('pslce-district-ss-f').value = '';
+                document.getElementById('pslce-day-sec-m').value = '';
+                document.getElementById('pslce-day-sec-f').value = '';
+                document.getElementById('pslce-cdss-m').value = '';
+                document.getElementById('pslce-cdss-f').value = '';
+                document.getElementById('pslce-total-selected-m').value = '';
+                document.getElementById('pslce-total-selected-f').value = '';
+                
                 this.loadPSLCE();
                 this.showSuccess('PSLCE results uploaded successfully');
             }
@@ -915,8 +1175,9 @@ const AdminPanel = {
         pslceList.innerHTML = pslce.map(item => `
             <div class="list-item" data-id="${item.id}">
                 <div class="list-item-info">
-                    <h4>EMIS: ${item.emis} | Year: ${item.year}</h4>
-                    <p>Candidates: ${item.candidates} | Passed: ${item.passed} | Failed: ${item.failed}</p>
+                    <h4>${item.schoolName || item.emis} | Year: ${item.year}</h4>
+                    <p>Zone: ${item.zone || 'N/A'}</p>
+                    <p>Total Selected M: ${item.totalSelectedM || 0} | Total Selected F: ${item.totalSelectedF || 0}</p>
                 </div>
                 <div class="list-item-actions">
                     <button class="btn-edit" onclick="AdminPanel.editPSLCE(${item.id})">Edit</button>
@@ -969,14 +1230,16 @@ const AdminPanel = {
             const phone = document.getElementById('particulars-phone').value.trim();
             const email = document.getElementById('particulars-email').value.trim();
             const address = document.getElementById('particulars-address').value.trim();
+            const distanceDem = document.getElementById('particulars-distance-dem').value.trim();
             
             if (emis && headmaster && phone && email && address) {
-                DataStore.addSchoolParticulars({ emis, headmaster, phone, email, address });
+                DataStore.addSchoolParticulars({ emis, headmaster, phone, email, address, distanceDem });
                 document.getElementById('particulars-emis').value = '';
                 document.getElementById('particulars-headmaster').value = '';
                 document.getElementById('particulars-phone').value = '';
                 document.getElementById('particulars-email').value = '';
                 document.getElementById('particulars-address').value = '';
+                document.getElementById('particulars-distance-dem').value = '';
                 this.loadParticulars();
                 this.showSuccess('School particulars uploaded successfully');
             }
@@ -1061,10 +1324,146 @@ const AdminPanel = {
         setTimeout(() => {
             popup.classList.remove('active');
         }, 3000);
+    },
+
+    generateEnrollmentChart(data) {
+        const ctx = document.getElementById('enrollment-chart');
+        if (!ctx || data.length === 0) return;
+
+        const sortedData = [...data].sort((a, b) => a.year - b.year);
+        const years = sortedData.map(d => d.year);
+        const totalM = sortedData.map(d => parseInt(d.totalM) || 0);
+        const totalF = sortedData.map(d => parseInt(d.totalF) || 0);
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: years,
+                datasets: [
+                    {
+                        label: 'Total Male',
+                        data: totalM,
+                        borderColor: 'rgba(102, 126, 234, 1)',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    },
+                    {
+                        label: 'Total Female',
+                        data: totalF,
+                        borderColor: 'rgba(118, 75, 162, 1)',
+                        backgroundColor: 'rgba(118, 75, 162, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: 'white'
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Enrollment Trends by Year',
+                        color: 'white',
+                        font: {
+                            size: 16
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: 'white' },
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                    },
+                    y: {
+                        ticks: { color: 'white' },
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                    }
+                }
+            }
+        });
+    },
+
+    generatePSLCEChart(data) {
+        const ctx = document.getElementById('pslce-chart');
+        if (!ctx || data.length === 0) return;
+
+        const sortedData = [...data].sort((a, b) => a.year - b.year);
+        const years = sortedData.map(d => d.year);
+        const totalSelectedM = sortedData.map(d => parseInt(d.totalSelectedM) || 0);
+        const totalSelectedF = sortedData.map(d => parseInt(d.totalSelectedF) || 0);
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: years,
+                datasets: [
+                    {
+                        label: 'Total Selected Male',
+                        data: totalSelectedM,
+                        borderColor: 'rgba(102, 126, 234, 1)',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    },
+                    {
+                        label: 'Total Selected Female',
+                        data: totalSelectedF,
+                        borderColor: 'rgba(118, 75, 162, 1)',
+                        backgroundColor: 'rgba(118, 75, 162, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: 'white'
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'PSLCE Selection Trends by Year',
+                        color: 'white',
+                        font: {
+                            size: 16
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: 'white' },
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                    },
+                    y: {
+                        ticks: { color: 'white' },
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                    }
+                }
+            }
+        });
     }
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Clear all localStorage data to start fresh
+    localStorage.removeItem('mzimba_zones');
+    localStorage.removeItem('mzimba_schools');
+    localStorage.removeItem('mzimba_enrollment');
+    localStorage.removeItem('mzimba_pslce');
+    localStorage.removeItem('mzimba_particulars');
+    localStorage.removeItem('mzimba_uploads');
+    
     Screens.init();
     SplashScreen.init();
     DistrictPasswordScreen.init();
