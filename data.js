@@ -198,15 +198,15 @@ const DataStore = {
                 name,
                 zone,
                 password,
-                districtNumber,
-                divisionNumber,
+                districtnumber,
+                divisionnumber,
                 constituency,
                 ta,
-                postalAddress,
-                distanceFromNearestPrimary,
-                distanceToTDC,
-                distanceToDEM,
-                yearEstablished
+                postaladdress,
+                distancefromnearestprimary,
+                distancetotdc,
+                distancetodem,
+                yearestablished
             }]).select().then(result => {
                 if (result.error) {
                     throw new Error(result.error.message);
@@ -224,15 +224,15 @@ const DataStore = {
             name,
             zone,
             password,
-            districtNumber,
-            divisionNumber,
+            districtnumber,
+            divisionnumber,
             constituency,
             ta,
-            postalAddress,
-            distanceFromNearestPrimary,
-            distanceToTDC,
-            distanceToDEM,
-            yearEstablished
+            postaladdress,
+            distancefromnearestprimary,
+            distancetotdc,
+            distancetodem,
+            yearestablished
         };
         schools.push(newSchool);
         this.schools = schools;
