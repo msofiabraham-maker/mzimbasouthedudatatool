@@ -80,97 +80,6 @@ const DistrictPasswordScreen = {
     }
 };
 
-const ZoneSearchScreen = {
-    init() {
-        const searchInput = document.getElementById('zone-search');
-        const resultsContainer = document.getElementById('zone-results');
-        
-        searchInput.addEventListener('input', () => {
-            const query = searchInput.value.toLowerCase().trim();
-            const zones = DataStore.getZones();
-            
-            if (query === '') {
-                resultsContainer.innerHTML = '';
-                return;
-            }
-            
-            const filteredZones = zones.filter(zone => 
-                zone.name.toLowerCase().includes(query)
-            );
-            
-            if (filteredZones.length === 0) {
-                resultsContainer.innerHTML = '<p class="no-data">Sorry, We don\'t cover this area</p>';
-                return;
-            }
-            
-            resultsContainer.innerHTML = filteredZones.map(zone => `
-                <div class="result-item" data-zone="${zone.name}">
-                    <h3>${zone.name}</h3>
-                </div>
-            `).join('');
-            
-            document.querySelectorAll('.result-item').forEach(item => {
-                item.addEventListener('click', () => {
-                    AppState.selectedZone = item.dataset.zone;
-                    EMISearchScreen.init();
-                    Screens.show('emis-search-screen');
-                });
-            });
-        });
-    }
-};
-
-const EMISearchScreen = {
-    init() {
-        const zoneDisplay = document.getElementById('selected-zone-display');
-        const searchInput = document.getElementById('emis-search');
-        const resultsContainer = document.getElementById('emis-results');
-        
-        zoneDisplay.textContent = `Selected Zone: ${AppState.selectedZone}`;
-        searchInput.value = '';
-        resultsContainer.innerHTML = '';
-        
-        searchInput.addEventListener('input', () => {
-            const query = searchInput.value.toLowerCase().trim();
-            const schools = DataStore.getSchoolsByZone(AppState.selectedZone);
-            
-            if (query === '') {
-                resultsContainer.innerHTML = '';
-                return;
-            }
-            
-            const filteredSchools = schools.filter(school => 
-                school.emis.toLowerCase().includes(query) || 
-                school.name.toLowerCase().includes(query)
-            );
-            
-            if (filteredSchools.length === 0) {
-                resultsContainer.innerHTML = '<p class="no-data">No schools found with this EMIS number</p>';
-                return;
-            }
-            
-            resultsContainer.innerHTML = filteredSchools.map(school => `
-                <div class="result-item" data-emis="${school.emis}" data-name="${school.name}" data-password="${school.password}">
-                    <h3>${school.name}</h3>
-                    <p>EMIS: ${school.emis}</p>
-                </div>
-            `).join('');
-            
-            document.querySelectorAll('.result-item').forEach(item => {
-                item.addEventListener('click', () => {
-                    AppState.selectedSchool = {
-                        emis: item.dataset.emis,
-                        name: item.dataset.name,
-                        password: item.dataset.password
-                    };
-                    SchoolPasswordScreen.init();
-                    Screens.show('school-password-screen');
-                });
-            });
-        });
-    }
-};
-
 const SchoolPasswordScreen = {
     init() {
         const schoolDisplay = document.getElementById('school-name-display');
@@ -209,6 +118,113 @@ const SchoolPasswordScreen = {
             if (e.key === 'Enter') {
                 loginBtn.click();
             }
+        });
+    }
+};
+
+const ZoneSearchScreen = {
+    init() {
+        const searchInput = document.getElementById('zone-search');
+        const resultsContainer = document.getElementById('zone-results');
+
+        const renderZones = (zones) => {
+            if (!resultsContainer) return;
+            if (!zones || zones.length === 0) {
+                resultsContainer.innerHTML = '<p class="no-data">No zones found</p>';
+                return;
+            }
+            resultsContainer.innerHTML = zones.map(zone => `
+                <div class="result-item" data-zone="${zone}">
+                    <h3>${zone}</h3>
+                </div>
+            `).join('');
+            resultsContainer.querySelectorAll('.result-item').forEach(item => {
+                item.addEventListener('click', () => {
+                        AppState.selectedZone = item.dataset.zone;
+                    Screens.show('emis-search-screen');
+                    if (typeof EmisSearchScreen !== 'undefined') {
+                        EmisSearchScreen.refresh();
+                    }
+                });
+            });
+        };
+
+        const loadZones = () => {
+            const zones = DataStore.getZones().map(z => z.name).filter(Boolean);
+            renderZones(zones);
+        };
+
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                const query = searchInput.value.trim().toLowerCase();
+                const zones = DataStore.getZones()
+                    .map(z => z.name)
+                    .filter(Boolean)
+                    .filter(name => name.toLowerCase().includes(query));
+                renderZones(zones);
+            });
+        }
+
+        loadZones();
+    }
+};
+
+const EmisSearchScreen = {
+    init() {
+        this.searchInput = document.getElementById('emis-search');
+        this.resultsContainer = document.getElementById('emis-results');
+        this.selectedZoneDisplay = document.getElementById('selected-zone-display');
+
+        if (this.searchInput) {
+            this.searchInput.addEventListener('input', () => this.renderResults());
+        }
+
+        this.refresh();
+    },
+
+    refresh() {
+        if (this.selectedZoneDisplay) {
+            this.selectedZoneDisplay.textContent = AppState.selectedZone ? `Selected Zone: ${AppState.selectedZone}` : '';
+        }
+        if (this.searchInput) {
+            this.searchInput.value = '';
+        }
+        this.renderResults();
+    },
+
+    renderResults() {
+        if (!this.resultsContainer) return;
+
+        const query = this.searchInput?.value.trim().toLowerCase() || '';
+        const allSchools = AppState.selectedZone ? DataStore.getSchoolsByZone(AppState.selectedZone) : DataStore.getSchools();
+        const filtered = allSchools.filter(school => {
+            const emis = String(school.emis || '').toLowerCase();
+            const name = String(school.name || '').toLowerCase();
+            return !query || emis.includes(query) || name.includes(query);
+        });
+
+        if (filtered.length === 0) {
+            this.resultsContainer.innerHTML = '<p class="no-data">No schools found in this zone</p>';
+            return;
+        }
+
+        this.resultsContainer.innerHTML = filtered.map(school => `
+            <div class="result-item" data-emis="${school.emis}" data-name="${school.name}" data-password="${school.password}">
+                <h3>${school.name}</h3>
+                <p>EMIS: ${school.emis}</p>
+            </div>
+        `).join('');
+
+        this.resultsContainer.querySelectorAll('.result-item').forEach(item => {
+            item.addEventListener('click', () => {
+                AppState.selectedSchool = {
+                    emis: item.dataset.emis,
+                    name: item.dataset.name,
+                    password: item.dataset.password
+                };
+                SchoolPasswordScreen.init();
+                Screens.show('school-password-screen');
+            });
         });
     }
 };
@@ -275,6 +291,26 @@ const CategoryDataView = {
         
         if (category === 'enrollment') {
             data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            const totals = {
+                std1m: data.reduce((sum, item) => sum + (parseInt(item.std1m) || 0), 0),
+                std1f: data.reduce((sum, item) => sum + (parseInt(item.std1f) || 0), 0),
+                std2m: data.reduce((sum, item) => sum + (parseInt(item.std2m) || 0), 0),
+                std2f: data.reduce((sum, item) => sum + (parseInt(item.std2f) || 0), 0),
+                std3m: data.reduce((sum, item) => sum + (parseInt(item.std3m) || 0), 0),
+                std3f: data.reduce((sum, item) => sum + (parseInt(item.std3f) || 0), 0),
+                std4m: data.reduce((sum, item) => sum + (parseInt(item.std4m) || 0), 0),
+                std4f: data.reduce((sum, item) => sum + (parseInt(item.std4f) || 0), 0),
+                std5m: data.reduce((sum, item) => sum + (parseInt(item.std5m) || 0), 0),
+                std5f: data.reduce((sum, item) => sum + (parseInt(item.std5f) || 0), 0),
+                std6m: data.reduce((sum, item) => sum + (parseInt(item.std6m) || 0), 0),
+                std6f: data.reduce((sum, item) => sum + (parseInt(item.std6f) || 0), 0),
+                std7m: data.reduce((sum, item) => sum + (parseInt(item.std7m) || 0), 0),
+                std7f: data.reduce((sum, item) => sum + (parseInt(item.std7f) || 0), 0),
+                std8m: data.reduce((sum, item) => sum + (parseInt(item.std8m) || 0), 0),
+                std8f: data.reduce((sum, item) => sum + (parseInt(item.std8f) || 0), 0),
+                totalM: data.reduce((sum, item) => sum + (parseInt(item.totalM) || 0), 0),
+                totalF: data.reduce((sum, item) => sum + (parseInt(item.totalF) || 0), 0)
+            };
             categoryContent.innerHTML = `
                 <table class="data-table">
                     <thead>
@@ -333,12 +369,56 @@ const CategoryDataView = {
                             </tr>
                         `).join('')}
                     </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="4"><strong>Totals</strong></td>
+                            <td>${totals.std1m}</td>
+                            <td>${totals.std1f}</td>
+                            <td>${totals.std2m}</td>
+                            <td>${totals.std2f}</td>
+                            <td>${totals.std3m}</td>
+                            <td>${totals.std3f}</td>
+                            <td>${totals.std4m}</td>
+                            <td>${totals.std4f}</td>
+                            <td>${totals.std5m}</td>
+                            <td>${totals.std5f}</td>
+                            <td>${totals.std6m}</td>
+                            <td>${totals.std6f}</td>
+                            <td>${totals.std7m}</td>
+                            <td>${totals.std7f}</td>
+                            <td>${totals.std8m}</td>
+                            <td>${totals.std8f}</td>
+                            <td>${totals.totalM}</td>
+                            <td>${totals.totalF}</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
                 </table>
                 <canvas id="enrollment-chart" style="margin-top: 30px; max-height: 400px;"></canvas>
             `;
-            this.generateEnrollmentChart(data);
+            AdminPanel.generateEnrollmentChart(data);
         } else if (category === 'pslce') {
             data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            const totals = {
+                enteredM: data.reduce((sum, item) => sum + (parseInt(item.enteredM) || 0), 0),
+                enteredF: data.reduce((sum, item) => sum + (parseInt(item.enteredF) || 0), 0),
+                satM: data.reduce((sum, item) => sum + (parseInt(item.satM) || 0), 0),
+                satF: data.reduce((sum, item) => sum + (parseInt(item.satF) || 0), 0),
+                passedM: data.reduce((sum, item) => sum + (parseInt(item.passedM) || 0), 0),
+                passedF: data.reduce((sum, item) => sum + (parseInt(item.passedF) || 0), 0),
+                failedM: data.reduce((sum, item) => sum + (parseInt(item.failedM) || 0), 0),
+                failedF: data.reduce((sum, item) => sum + (parseInt(item.failedF) || 0), 0),
+                nationalSecM: data.reduce((sum, item) => sum + (parseInt(item.nationalSecM) || 0), 0),
+                nationalSecF: data.reduce((sum, item) => sum + (parseInt(item.nationalSecF) || 0), 0),
+                districtSsM: data.reduce((sum, item) => sum + (parseInt(item.districtSsM) || 0), 0),
+                districtSsF: data.reduce((sum, item) => sum + (parseInt(item.districtSsF) || 0), 0),
+                daySecM: data.reduce((sum, item) => sum + (parseInt(item.daySecM) || 0), 0),
+                daySecF: data.reduce((sum, item) => sum + (parseInt(item.daySecF) || 0), 0),
+                cdssM: data.reduce((sum, item) => sum + (parseInt(item.cdssM) || 0), 0),
+                cdssF: data.reduce((sum, item) => sum + (parseInt(item.cdssF) || 0), 0),
+                totalSelectedM: data.reduce((sum, item) => sum + (parseInt(item.totalSelectedM) || 0), 0),
+                totalSelectedF: data.reduce((sum, item) => sum + (parseInt(item.totalSelectedF) || 0), 0)
+            };
             categoryContent.innerHTML = `
                 <table class="data-table">
                     <thead>
@@ -397,10 +477,34 @@ const CategoryDataView = {
                             </tr>
                         `).join('')}
                     </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="4"><strong>Totals</strong></td>
+                            <td>${totals.enteredM}</td>
+                            <td>${totals.enteredF}</td>
+                            <td>${totals.satM}</td>
+                            <td>${totals.satF}</td>
+                            <td>${totals.passedM}</td>
+                            <td>${totals.passedF}</td>
+                            <td>${totals.failedM}</td>
+                            <td>${totals.failedF}</td>
+                            <td>${totals.nationalSecM}</td>
+                            <td>${totals.nationalSecF}</td>
+                            <td>${totals.districtSsM}</td>
+                            <td>${totals.districtSsF}</td>
+                            <td>${totals.daySecM}</td>
+                            <td>${totals.daySecF}</td>
+                            <td>${totals.cdssM}</td>
+                            <td>${totals.cdssF}</td>
+                            <td>${totals.totalSelectedM}</td>
+                            <td>${totals.totalSelectedF}</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
                 </table>
                 <canvas id="pslce-chart" style="margin-top: 30px; max-height: 400px;"></canvas>
             `;
-            this.generatePSLCEChart(data);
+            AdminPanel.generatePSLCEChart(data);
         } else if (category === 'particulars') {
             const school = DataStore.getSchoolByEMIS(AppState.selectedSchool.emis);
             const particulars = DataStore.getParticularsByEMIS(AppState.selectedSchool.emis);
@@ -1079,6 +1183,7 @@ const AdminPanel = {
             const std8f = document.getElementById('enrollment-std8f').value.trim();
             
             if (schoolEmis && year) {
+                try {
                 const totalM = (parseInt(std1m) || 0) + (parseInt(std2m) || 0) + (parseInt(std3m) || 0) + 
                                (parseInt(std4m) || 0) + (parseInt(std5m) || 0) + (parseInt(std6m) || 0) + 
                                (parseInt(std7m) || 0) + (parseInt(std8m) || 0);
@@ -1123,6 +1228,9 @@ const AdminPanel = {
                 
                 this.loadEnrollment();
                 this.showSuccess('Enrollment data uploaded successfully');
+                } catch (err) {
+                    alert(err.message || err);
+                }
             }
         });
     },
@@ -1246,48 +1354,52 @@ const AdminPanel = {
             const cdssF = document.getElementById('pslce-cdss-f').value.trim();
             
             if (schoolEmis && year) {
-                const totalSelectedM = (parseInt(nationalSecM) || 0) + (parseInt(districtSsM) || 0) + 
-                                      (parseInt(daySecM) || 0) + (parseInt(cdssM) || 0);
-                const totalSelectedF = (parseInt(nationalSecF) || 0) + (parseInt(districtSsF) || 0) + 
-                                      (parseInt(daySecF) || 0) + (parseInt(cdssF) || 0);
-                
-                await DataStore.addPSLCEResult({ 
-                    emis: schoolEmis, 
-                    year,
-                    enteredM, enteredF,
-                    satM, satF,
-                    passedM, passedF,
-                    failedM, failedF,
-                    nationalSecM, nationalSecF,
-                    districtSsM, districtSsF,
-                    daySecM, daySecF,
-                    cdssM, cdssF,
-                    totalSelectedM, totalSelectedF
-                });
-                
-                document.getElementById('pslce-school').value = '';
-                document.getElementById('pslce-year').value = '';
-                document.getElementById('pslce-entered-m').value = '';
-                document.getElementById('pslce-entered-f').value = '';
-                document.getElementById('pslce-sat-m').value = '';
-                document.getElementById('pslce-sat-f').value = '';
-                document.getElementById('pslce-passed-m').value = '';
-                document.getElementById('pslce-passed-f').value = '';
-                document.getElementById('pslce-failed-m').value = '';
-                document.getElementById('pslce-failed-f').value = '';
-                document.getElementById('pslce-national-sec-m').value = '';
-                document.getElementById('pslce-national-sec-f').value = '';
-                document.getElementById('pslce-district-ss-m').value = '';
-                document.getElementById('pslce-district-ss-f').value = '';
-                document.getElementById('pslce-day-sec-m').value = '';
-                document.getElementById('pslce-day-sec-f').value = '';
-                document.getElementById('pslce-cdss-m').value = '';
-                document.getElementById('pslce-cdss-f').value = '';
-                document.getElementById('pslce-total-selected-m-display').textContent = '0';
-                document.getElementById('pslce-total-selected-f-display').textContent = '0';
-                
-                this.loadPSLCE();
-                this.showSuccess('PSLCE results uploaded successfully');
+                try {
+                    const totalSelectedM = (parseInt(nationalSecM) || 0) + (parseInt(districtSsM) || 0) + 
+                                          (parseInt(daySecM) || 0) + (parseInt(cdssM) || 0);
+                    const totalSelectedF = (parseInt(nationalSecF) || 0) + (parseInt(districtSsF) || 0) + 
+                                          (parseInt(daySecF) || 0) + (parseInt(cdssF) || 0);
+                    
+                    await DataStore.addPSLCEResult({ 
+                        emis: schoolEmis, 
+                        year,
+                        enteredM, enteredF,
+                        satM, satF,
+                        passedM, passedF,
+                        failedM, failedF,
+                        nationalSecM, nationalSecF,
+                        districtSsM, districtSsF,
+                        daySecM, daySecF,
+                        cdssM, cdssF,
+                        totalSelectedM, totalSelectedF
+                    });
+                    
+                    document.getElementById('pslce-school').value = '';
+                    document.getElementById('pslce-year').value = '';
+                    document.getElementById('pslce-entered-m').value = '';
+                    document.getElementById('pslce-entered-f').value = '';
+                    document.getElementById('pslce-sat-m').value = '';
+                    document.getElementById('pslce-sat-f').value = '';
+                    document.getElementById('pslce-passed-m').value = '';
+                    document.getElementById('pslce-passed-f').value = '';
+                    document.getElementById('pslce-failed-m').value = '';
+                    document.getElementById('pslce-failed-f').value = '';
+                    document.getElementById('pslce-national-sec-m').value = '';
+                    document.getElementById('pslce-national-sec-f').value = '';
+                    document.getElementById('pslce-district-ss-m').value = '';
+                    document.getElementById('pslce-district-ss-f').value = '';
+                    document.getElementById('pslce-day-sec-m').value = '';
+                    document.getElementById('pslce-day-sec-f').value = '';
+                    document.getElementById('pslce-cdss-m').value = '';
+                    document.getElementById('pslce-cdss-f').value = '';
+                    document.getElementById('pslce-total-selected-m-display').textContent = '0';
+                    document.getElementById('pslce-total-selected-f-display').textContent = '0';
+                    
+                    this.loadPSLCE();
+                    this.showSuccess('PSLCE results uploaded successfully');
+                } catch (err) {
+                    alert(err.message || err);
+                }
             }
         });
     },
@@ -1373,14 +1485,18 @@ const AdminPanel = {
             const address = document.getElementById('particulars-address').value.trim();
             
             if (emis && headmaster && phone && email && address) {
-                await DataStore.addSchoolParticulars({ emis, headmaster, phone, email, address });
-                document.getElementById('particulars-emis').value = '';
-                document.getElementById('particulars-headmaster').value = '';
-                document.getElementById('particulars-phone').value = '';
-                document.getElementById('particulars-email').value = '';
-                document.getElementById('particulars-address').value = '';
-                this.loadParticulars();
-                this.showSuccess('School particulars uploaded successfully');
+                try {
+                    await DataStore.addSchoolParticulars({ emis, headmaster, phone, email, address });
+                    document.getElementById('particulars-emis').value = '';
+                    document.getElementById('particulars-headmaster').value = '';
+                    document.getElementById('particulars-phone').value = '';
+                    document.getElementById('particulars-email').value = '';
+                    document.getElementById('particulars-address').value = '';
+                    this.loadParticulars();
+                    this.showSuccess('School particulars uploaded successfully');
+                } catch (err) {
+                    alert(err.message || err);
+                }
             }
         });
     },
@@ -1677,5 +1793,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     SplashScreen.init();
     DistrictPasswordScreen.init();
     ZoneSearchScreen.init();
+    EmisSearchScreen.init();
     AdminPanel.init();
 });
