@@ -18,7 +18,12 @@ const Config = {
     
     // Admin Recovery Email
     // This email is used for password recovery verification
-    recoveryEmail: 'martinkaonga@yahoo.com'
+    recoveryEmail: 'martinkaonga@yahoo.com',
+
+    // Supabase Details
+    // Paste your Supabase URL and anon key after creating the project.
+    supabaseUrl: 'https://nglpcjuaiqkxvvcgibbo.supabase.co/rest/v1/',
+    supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5nbHBjanVhaXFreHZ2Y2dpYmJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyNTk5ODcsImV4cCI6MjA5NDgzNTk4N30.0aH0J75cCoE4x3TC1jIMM2ToBc3JS9eqIr5IwkwM8Pg'
 };
 
 // Make Config available globally

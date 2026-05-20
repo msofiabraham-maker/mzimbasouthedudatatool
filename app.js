@@ -274,27 +274,31 @@ const CategoryDataView = {
         }
         
         if (category === 'enrollment') {
+            data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
             categoryContent.innerHTML = `
                 <table class="data-table">
                     <thead>
                         <tr>
+                            <th>Name of School</th>
+                            <th>EMIS Number</th>
+                            <th>Zone</th>
                             <th>Year</th>
-                            <th>STD1 M</th>
-                            <th>STD1 F</th>
-                            <th>STD2 M</th>
-                            <th>STD2 F</th>
-                            <th>STD3 M</th>
-                            <th>STD3 F</th>
-                            <th>STD4 M</th>
-                            <th>STD4 F</th>
-                            <th>STD5 M</th>
-                            <th>STD5 F</th>
-                            <th>STD6 M</th>
-                            <th>STD6 F</th>
-                            <th>STD7 M</th>
-                            <th>STD7 F</th>
-                            <th>STD8 M</th>
-                            <th>STD8 F</th>
+                            <th>STD1M</th>
+                            <th>STD1F</th>
+                            <th>STD2M</th>
+                            <th>STD2F</th>
+                            <th>STD3M</th>
+                            <th>STD3F</th>
+                            <th>STD4M</th>
+                            <th>STD4F</th>
+                            <th>STD5M</th>
+                            <th>STD5F</th>
+                            <th>STD6M</th>
+                            <th>STD6F</th>
+                            <th>STD7M</th>
+                            <th>STD7F</th>
+                            <th>STD8M</th>
+                            <th>STD8F</th>
                             <th>TOTAL M</th>
                             <th>TOTAL F</th>
                             <th>Date Uploaded</th>
@@ -303,6 +307,9 @@ const CategoryDataView = {
                     <tbody>
                         ${data.map(item => `
                             <tr>
+                                <td>${item.schoolName || 'N/A'}</td>
+                                <td>${item.emis}</td>
+                                <td>${item.zone || 'N/A'}</td>
                                 <td>${item.year}</td>
                                 <td>${item.std1m || 0}</td>
                                 <td>${item.std1f || 0}</td>
@@ -331,10 +338,14 @@ const CategoryDataView = {
             `;
             this.generateEnrollmentChart(data);
         } else if (category === 'pslce') {
+            data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
             categoryContent.innerHTML = `
                 <table class="data-table">
                     <thead>
                         <tr>
+                            <th>Name of School</th>
+                            <th>EMIS Number</th>
+                            <th>Zone</th>
                             <th>Year</th>
                             <th>ENTERED M</th>
                             <th>ENTERED F</th>
@@ -344,22 +355,25 @@ const CategoryDataView = {
                             <th>PASSED F</th>
                             <th>FAILED M</th>
                             <th>FAILED F</th>
-                            <th>NAT SEC M</th>
-                            <th>NAT SEC F</th>
-                            <th>DIST SS M</th>
-                            <th>DIST SS F</th>
-                            <th>DAY SEC M</th>
-                            <th>DAY SEC F</th>
+                            <th>NATIONAL SEC SCHOOL M</th>
+                            <th>NATIONAL SEC SCHOOL F</th>
+                            <th>DISTRICT SS M</th>
+                            <th>DISTRICT SS F</th>
+                            <th>DAY SEC SCHOOL M</th>
+                            <th>DAY SEC SCHOOL F</th>
                             <th>CDSS M</th>
                             <th>CDSS F</th>
-                            <th>TOTAL SEL M</th>
-                            <th>TOTAL SEL F</th>
+                            <th>TOTAL SELECTED M</th>
+                            <th>TOTAL SELECTED F</th>
                             <th>Date Uploaded</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${data.map(item => `
                             <tr>
+                                <td>${item.schoolName || 'N/A'}</td>
+                                <td>${item.emis}</td>
+                                <td>${item.zone || 'N/A'}</td>
                                 <td>${item.year}</td>
                                 <td>${item.enteredM || 0}</td>
                                 <td>${item.enteredF || 0}</td>
@@ -439,6 +453,10 @@ const CategoryDataView = {
                                     <p>${school.distanceToTDC ? school.distanceToTDC + ' km' : 'N/A'}</p>
                                 </div>
                                 <div class="particular-item">
+                                    <label>Distance to the DEM's Office</label>
+                                    <p>${school.distanceToDEM ? school.distanceToDEM + ' km' : 'N/A'}</p>
+                                </div>
+                                <div class="particular-item">
                                     <label>Year Established</label>
                                     <p>${school.yearEstablished || 'N/A'}</p>
                                 </div>
@@ -463,10 +481,6 @@ const CategoryDataView = {
                                 <div class="particular-item">
                                     <label>Physical Address</label>
                                     <p>${latestParticulars.address || 'N/A'}</p>
-                                </div>
-                                <div class="particular-item">
-                                    <label>Distance to the DEM's Office</label>
-                                    <p>${latestParticulars.distanceDem ? latestParticulars.distanceDem + ' km' : 'N/A'}</p>
                                 </div>
                             </div>
                         </div>
@@ -770,13 +784,48 @@ const AdminPanel = {
         searchInput.placeholder = 'Search...';
         wrapper.insertBefore(searchInput, selectElement);
 
+        // Allow both search and scroll
+        let isSearching = false;
+        
         searchInput.addEventListener('input', (e) => {
+            isSearching = e.target.value.length > 0;
             const searchTerm = e.target.value.toLowerCase();
             const options = selectElement.options;
+            let visibleCount = 0;
+            
             for (let i = 1; i < options.length; i++) {
                 const option = options[i];
                 const text = option.text.toLowerCase();
-                option.style.display = text.includes(searchTerm) ? '' : 'none';
+                if (text.includes(searchTerm)) {
+                    option.style.display = '';
+                    visibleCount++;
+                } else {
+                    option.style.display = 'none';
+                }
+            }
+            
+            // If search returns results, auto-select the first match
+            if (isSearching && visibleCount > 0) {
+                for (let i = 1; i < options.length; i++) {
+                    if (options[i].style.display !== 'none') {
+                        selectElement.value = options[i].value;
+                        break;
+                    }
+                }
+            }
+        });
+        
+        // Clear search on select
+        selectElement.addEventListener('change', () => {
+            if (!isSearching) {
+                searchInput.value = '';
+            }
+        });
+        
+        // Allow manual text input in search box
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                selectElement.focus();
             }
         });
     },
@@ -793,11 +842,11 @@ const AdminPanel = {
         const addBtn = document.getElementById('add-zone-btn');
         const zoneNameInput = document.getElementById('new-zone-name');
         
-        addBtn.addEventListener('click', () => {
+        addBtn.addEventListener('click', async () => {
             const zoneName = zoneNameInput.value.trim();
             if (zoneName) {
                 try {
-                    DataStore.addZone(zoneName);
+                    await DataStore.addZone(zoneName);
                     zoneNameInput.value = '';
                     this.loadZones();
                     this.populateZoneSelect();
@@ -826,21 +875,21 @@ const AdminPanel = {
         `).join('');
     },
     
-    deleteZone(id) {
+    async deleteZone(id) {
         if (confirm('Are you sure you want to delete this zone?')) {
-            DataStore.deleteRecord('zone', id);
+            await DataStore.deleteRecord('zone', id);
             this.loadZones();
             this.populateZoneSelect();
         }
     },
     
-    editZone(id) {
+    async editZone(id) {
         const zones = DataStore.getZones();
         const zone = zones.find(z => z.id === id);
         if (zone) {
             const newName = prompt('Enter new zone name:', zone.name);
             if (newName && newName.trim()) {
-                DataStore.editRecord('zone', id, { name: newName.trim() });
+                await DataStore.editRecord('zone', id, { name: newName.trim() });
                 this.loadZones();
                 this.populateZoneSelect();
                 this.showSuccess('Zone updated successfully');
@@ -861,9 +910,10 @@ const AdminPanel = {
         const postalAddressInput = document.getElementById('new-school-postal-address');
         const distancePrimaryInput = document.getElementById('new-school-distance-primary');
         const distanceTDCInput = document.getElementById('new-school-distance-tdc');
+        const distanceDemInput = document.getElementById('new-school-distance-dem');
         const yearEstablishedInput = document.getElementById('new-school-year-established');
         
-        addBtn.addEventListener('click', () => {
+        addBtn.addEventListener('click', async () => {
             const emis = emisInput.value.trim();
             const name = nameInput.value.trim();
             const zone = zoneSelect.value;
@@ -875,11 +925,12 @@ const AdminPanel = {
             const postalAddress = postalAddressInput.value.trim();
             const distanceFromNearestPrimary = distancePrimaryInput.value.trim();
             const distanceToTDC = distanceTDCInput.value.trim();
+            const distanceToDEM = distanceDemInput.value.trim();
             const yearEstablished = yearEstablishedInput.value.trim();
             
             if (emis && name && zone && password) {
                 try {
-                    DataStore.addSchool(emis, name, zone, password, districtNumber, divisionNumber, constituency, ta, postalAddress, distanceFromNearestPrimary, distanceToTDC, yearEstablished);
+                    await DataStore.addSchool(emis, name, zone, password, districtNumber, divisionNumber, constituency, ta, postalAddress, distanceFromNearestPrimary, distanceToTDC, distanceToDEM, yearEstablished);
                     emisInput.value = '';
                     nameInput.value = '';
                     zoneSelect.value = '';
@@ -891,6 +942,7 @@ const AdminPanel = {
                     postalAddressInput.value = '';
                     distancePrimaryInput.value = '';
                     distanceTDCInput.value = '';
+                    distanceDemInput.value = '';
                     yearEstablishedInput.value = '';
                     this.loadSchools();
                     this.populateSchoolSelects();
@@ -921,14 +973,14 @@ const AdminPanel = {
         `).join('');
     },
     
-    deleteSchool(id) {
+    async deleteSchool(id) {
         if (confirm('Are you sure you want to delete this school?')) {
-            DataStore.deleteRecord('school', id);
+            await DataStore.deleteRecord('school', id);
             this.loadSchools();
         }
     },
     
-    editSchool(id) {
+    async editSchool(id) {
         const schools = DataStore.getSchools();
         const school = schools.find(s => s.id === id);
         if (school) {
@@ -954,10 +1006,12 @@ const AdminPanel = {
             if (newDistancePrimary === null) return;
             const newDistanceTDC = prompt('Distance To TDC (km):', school.distanceToTDC || '');
             if (newDistanceTDC === null) return;
+            const newDistanceDEM = prompt("Distance to the DEM's Office (km):", school.distanceToDEM || '');
+            if (newDistanceDEM === null) return;
             const newYearEstablished = prompt('Year Established:', school.yearEstablished || '');
             if (newYearEstablished === null) return;
             
-            DataStore.editRecord('school', id, {
+            await DataStore.editRecord('school', id, {
                 emis: newEmis.trim(),
                 name: newName.trim(),
                 zone: newZone.trim(),
@@ -969,6 +1023,7 @@ const AdminPanel = {
                 postalAddress: newPostalAddress.trim(),
                 distanceFromNearestPrimary: newDistancePrimary.trim(),
                 distanceToTDC: newDistanceTDC.trim(),
+                distanceToDEM: newDistanceDEM.trim(),
                 yearEstablished: newYearEstablished.trim()
             });
             this.loadSchools();
@@ -978,10 +1033,33 @@ const AdminPanel = {
     
     initEnrollmentPanel() {
         const uploadBtn = document.getElementById('upload-enrollment-btn');
+        const stdFields = [
+            'enrollment-std1m', 'enrollment-std1f',
+            'enrollment-std2m', 'enrollment-std2f',
+            'enrollment-std3m', 'enrollment-std3f',
+            'enrollment-std4m', 'enrollment-std4f',
+            'enrollment-std5m', 'enrollment-std5f',
+            'enrollment-std6m', 'enrollment-std6f',
+            'enrollment-std7m', 'enrollment-std7f',
+            'enrollment-std8m', 'enrollment-std8f'
+        ];
         
-        uploadBtn.addEventListener('click', () => {
+        // Add auto-calculation listeners
+        stdFields.forEach(fieldId => {
+            const input = document.getElementById(fieldId);
+            if (input) {
+                input.addEventListener('input', () => this.calculateEnrollmentTotals());
+            }
+        });
+        
+        uploadBtn.addEventListener('click', async () => {
             const schoolEmis = document.getElementById('enrollment-school').value.trim();
             const year = document.getElementById('enrollment-year').value.trim();
+            
+            if (!schoolEmis || !year) {
+                alert('Please select both school and year');
+                return;
+            }
             
             const std1m = document.getElementById('enrollment-std1m').value.trim();
             const std1f = document.getElementById('enrollment-std1f').value.trim();
@@ -1008,7 +1086,7 @@ const AdminPanel = {
                                (parseInt(std4f) || 0) + (parseInt(std5f) || 0) + (parseInt(std6f) || 0) + 
                                (parseInt(std7f) || 0) + (parseInt(std8f) || 0);
                 
-                DataStore.addEnrollment({ 
+                await DataStore.addEnrollment({ 
                     emis: schoolEmis, 
                     year,
                     std1m, std1f,
@@ -1040,6 +1118,8 @@ const AdminPanel = {
                 document.getElementById('enrollment-std7f').value = '';
                 document.getElementById('enrollment-std8m').value = '';
                 document.getElementById('enrollment-std8f').value = '';
+                document.getElementById('enrollment-total-m-display').textContent = '0';
+                document.getElementById('enrollment-total-f-display').textContent = '0';
                 
                 this.loadEnrollment();
                 this.showSuccess('Enrollment data uploaded successfully');
@@ -1047,9 +1127,31 @@ const AdminPanel = {
         });
     },
     
+    calculateEnrollmentTotals() {
+        const stdFields = [
+            ['enrollment-std1m', 'enrollment-std1f'],
+            ['enrollment-std2m', 'enrollment-std2f'],
+            ['enrollment-std3m', 'enrollment-std3f'],
+            ['enrollment-std4m', 'enrollment-std4f'],
+            ['enrollment-std5m', 'enrollment-std5f'],
+            ['enrollment-std6m', 'enrollment-std6f'],
+            ['enrollment-std7m', 'enrollment-std7f'],
+            ['enrollment-std8m', 'enrollment-std8f']
+        ];
+        
+        let totalM = 0, totalF = 0;
+        stdFields.forEach(([maleId, femaleId]) => {
+            totalM += parseInt(document.getElementById(maleId).value) || 0;
+            totalF += parseInt(document.getElementById(femaleId).value) || 0;
+        });
+        
+        document.getElementById('enrollment-total-m-display').textContent = totalM;
+        document.getElementById('enrollment-total-f-display').textContent = totalF;
+    },
+    
     loadEnrollment() {
         const enrollmentList = document.getElementById('enrollment-list');
-        const enrollment = JSON.parse(localStorage.getItem('mzimba_enrollment')) || [];
+        const enrollment = DataStore.getEnrollment();
         
         enrollmentList.innerHTML = enrollment.map(item => `
             <div class="list-item" data-id="${item.id}">
@@ -1066,15 +1168,15 @@ const AdminPanel = {
         `).join('');
     },
     
-    deleteEnrollment(id) {
+    async deleteEnrollment(id) {
         if (confirm('Are you sure you want to delete this record?')) {
-            DataStore.deleteRecord('enrollment', id);
+            await DataStore.deleteRecord('enrollment', id);
             this.loadEnrollment();
         }
     },
     
     editEnrollment(id) {
-        const enrollment = JSON.parse(localStorage.getItem('mzimba_enrollment')) || [];
+        const enrollment = DataStore.getEnrollment();
         const item = enrollment.find(e => e.id === id);
         if (item) {
             const newEmis = prompt('EMIS Number:', item.emis);
@@ -1102,10 +1204,29 @@ const AdminPanel = {
     
     initPSLCEPanel() {
         const uploadBtn = document.getElementById('upload-pslce-btn');
+        const schoolFields = [
+            'pslce-national-sec-m', 'pslce-national-sec-f',
+            'pslce-district-ss-m', 'pslce-district-ss-f',
+            'pslce-day-sec-m', 'pslce-day-sec-f',
+            'pslce-cdss-m', 'pslce-cdss-f'
+        ];
         
-        uploadBtn.addEventListener('click', () => {
+        // Add auto-calculation listeners
+        schoolFields.forEach(fieldId => {
+            const input = document.getElementById(fieldId);
+            if (input) {
+                input.addEventListener('input', () => this.calculatePSLCETotals());
+            }
+        });
+        
+        uploadBtn.addEventListener('click', async () => {
             const schoolEmis = document.getElementById('pslce-school').value.trim();
             const year = document.getElementById('pslce-year').value.trim();
+            
+            if (!schoolEmis || !year) {
+                alert('Please select both school and year');
+                return;
+            }
             
             const enteredM = document.getElementById('pslce-entered-m').value.trim();
             const enteredF = document.getElementById('pslce-entered-f').value.trim();
@@ -1123,11 +1244,14 @@ const AdminPanel = {
             const daySecF = document.getElementById('pslce-day-sec-f').value.trim();
             const cdssM = document.getElementById('pslce-cdss-m').value.trim();
             const cdssF = document.getElementById('pslce-cdss-f').value.trim();
-            const totalSelectedM = document.getElementById('pslce-total-selected-m').value.trim();
-            const totalSelectedF = document.getElementById('pslce-total-selected-f').value.trim();
             
             if (schoolEmis && year) {
-                DataStore.addPSLCEResult({ 
+                const totalSelectedM = (parseInt(nationalSecM) || 0) + (parseInt(districtSsM) || 0) + 
+                                      (parseInt(daySecM) || 0) + (parseInt(cdssM) || 0);
+                const totalSelectedF = (parseInt(nationalSecF) || 0) + (parseInt(districtSsF) || 0) + 
+                                      (parseInt(daySecF) || 0) + (parseInt(cdssF) || 0);
+                
+                await DataStore.addPSLCEResult({ 
                     emis: schoolEmis, 
                     year,
                     enteredM, enteredF,
@@ -1159,8 +1283,8 @@ const AdminPanel = {
                 document.getElementById('pslce-day-sec-f').value = '';
                 document.getElementById('pslce-cdss-m').value = '';
                 document.getElementById('pslce-cdss-f').value = '';
-                document.getElementById('pslce-total-selected-m').value = '';
-                document.getElementById('pslce-total-selected-f').value = '';
+                document.getElementById('pslce-total-selected-m-display').textContent = '0';
+                document.getElementById('pslce-total-selected-f-display').textContent = '0';
                 
                 this.loadPSLCE();
                 this.showSuccess('PSLCE results uploaded successfully');
@@ -1168,9 +1292,26 @@ const AdminPanel = {
         });
     },
     
+    calculatePSLCETotals() {
+        const nationalSecM = parseInt(document.getElementById('pslce-national-sec-m').value) || 0;
+        const nationalSecF = parseInt(document.getElementById('pslce-national-sec-f').value) || 0;
+        const districtSsM = parseInt(document.getElementById('pslce-district-ss-m').value) || 0;
+        const districtSsF = parseInt(document.getElementById('pslce-district-ss-f').value) || 0;
+        const daySecM = parseInt(document.getElementById('pslce-day-sec-m').value) || 0;
+        const daySecF = parseInt(document.getElementById('pslce-day-sec-f').value) || 0;
+        const cdssM = parseInt(document.getElementById('pslce-cdss-m').value) || 0;
+        const cdssF = parseInt(document.getElementById('pslce-cdss-f').value) || 0;
+        
+        const totalM = nationalSecM + districtSsM + daySecM + cdssM;
+        const totalF = nationalSecF + districtSsF + daySecF + cdssF;
+        
+        document.getElementById('pslce-total-selected-m-display').textContent = totalM;
+        document.getElementById('pslce-total-selected-f-display').textContent = totalF;
+    },
+    
     loadPSLCE() {
         const pslceList = document.getElementById('pslce-list');
-        const pslce = JSON.parse(localStorage.getItem('mzimba_pslce')) || [];
+        const pslce = DataStore.getPSLCE();
         
         pslceList.innerHTML = pslce.map(item => `
             <div class="list-item" data-id="${item.id}">
@@ -1187,15 +1328,15 @@ const AdminPanel = {
         `).join('');
     },
     
-    deletePSLCE(id) {
+    async deletePSLCE(id) {
         if (confirm('Are you sure you want to delete this record?')) {
-            DataStore.deleteRecord('pslce', id);
+            await DataStore.deleteRecord('pslce', id);
             this.loadPSLCE();
         }
     },
     
     editPSLCE(id) {
-        const pslce = JSON.parse(localStorage.getItem('mzimba_pslce')) || [];
+        const pslce = DataStore.getPSLCE();
         const item = pslce.find(p => p.id === id);
         if (item) {
             const newEmis = prompt('EMIS Number:', item.emis);
@@ -1224,22 +1365,20 @@ const AdminPanel = {
     initParticularsPanel() {
         const uploadBtn = document.getElementById('upload-particulars-btn');
         
-        uploadBtn.addEventListener('click', () => {
+        uploadBtn.addEventListener('click', async () => {
             const emis = document.getElementById('particulars-emis').value.trim();
             const headmaster = document.getElementById('particulars-headmaster').value.trim();
             const phone = document.getElementById('particulars-phone').value.trim();
             const email = document.getElementById('particulars-email').value.trim();
             const address = document.getElementById('particulars-address').value.trim();
-            const distanceDem = document.getElementById('particulars-distance-dem').value.trim();
             
             if (emis && headmaster && phone && email && address) {
-                DataStore.addSchoolParticulars({ emis, headmaster, phone, email, address, distanceDem });
+                await DataStore.addSchoolParticulars({ emis, headmaster, phone, email, address });
                 document.getElementById('particulars-emis').value = '';
                 document.getElementById('particulars-headmaster').value = '';
                 document.getElementById('particulars-phone').value = '';
                 document.getElementById('particulars-email').value = '';
                 document.getElementById('particulars-address').value = '';
-                document.getElementById('particulars-distance-dem').value = '';
                 this.loadParticulars();
                 this.showSuccess('School particulars uploaded successfully');
             }
@@ -1248,7 +1387,7 @@ const AdminPanel = {
     
     loadParticulars() {
         const particularsList = document.getElementById('particulars-list');
-        const particulars = JSON.parse(localStorage.getItem('mzimba_particulars')) || [];
+        const particulars = DataStore.getSchoolParticulars();
         
         particularsList.innerHTML = particulars.map(item => `
             <div class="list-item" data-id="${item.id}">
@@ -1264,15 +1403,15 @@ const AdminPanel = {
         `).join('');
     },
     
-    deleteParticulars(id) {
+    async deleteParticulars(id) {
         if (confirm('Are you sure you want to delete this record?')) {
-            DataStore.deleteRecord('particulars', id);
+            await DataStore.deleteRecord('particulars', id);
             this.loadParticulars();
         }
     },
     
     editParticulars(id) {
-        const particulars = JSON.parse(localStorage.getItem('mzimba_particulars')) || [];
+        const particulars = DataStore.getSchoolParticulars();
         const item = particulars.find(p => p.id === id);
         if (item) {
             const newEmis = prompt('EMIS Number:', item.emis);
@@ -1343,18 +1482,30 @@ const AdminPanel = {
                     {
                         label: 'Total Male',
                         data: totalM,
-                        borderColor: 'rgba(102, 126, 234, 1)',
-                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.15)',
+                        borderWidth: 3,
                         tension: 0.4,
-                        fill: true
+                        fill: true,
+                        pointRadius: 6,
+                        pointBackgroundColor: '#667eea',
+                        pointBorderColor: 'white',
+                        pointBorderWidth: 2,
+                        pointHoverRadius: 8
                     },
                     {
                         label: 'Total Female',
                         data: totalF,
-                        borderColor: 'rgba(118, 75, 162, 1)',
-                        backgroundColor: 'rgba(118, 75, 162, 0.1)',
+                        borderColor: '#764ba2',
+                        backgroundColor: 'rgba(118, 75, 162, 0.15)',
+                        borderWidth: 3,
                         tension: 0.4,
-                        fill: true
+                        fill: true,
+                        pointRadius: 6,
+                        pointBackgroundColor: '#764ba2',
+                        pointBorderColor: 'white',
+                        pointBorderWidth: 2,
+                        pointHoverRadius: 8
                     }
                 ]
             },
@@ -1364,7 +1515,12 @@ const AdminPanel = {
                 plugins: {
                     legend: {
                         labels: {
-                            color: 'white'
+                            color: 'white',
+                            font: {
+                                size: 12,
+                                weight: 'bold'
+                            },
+                            padding: 20
                         }
                     },
                     title: {
@@ -1372,18 +1528,31 @@ const AdminPanel = {
                         text: 'Enrollment Trends by Year',
                         color: 'white',
                         font: {
-                            size: 16
-                        }
+                            size: 18,
+                            weight: 'bold'
+                        },
+                        padding: 20
                     }
                 },
                 scales: {
                     x: {
-                        ticks: { color: 'white' },
+                        ticks: { 
+                            color: 'white',
+                            font: {
+                                size: 11
+                            }
+                        },
                         grid: { color: 'rgba(255, 255, 255, 0.1)' }
                     },
                     y: {
-                        ticks: { color: 'white' },
-                        grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        ticks: { 
+                            color: 'white',
+                            font: {
+                                size: 11
+                            }
+                        },
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                        beginAtZero: true
                     }
                 }
             }
@@ -1407,18 +1576,30 @@ const AdminPanel = {
                     {
                         label: 'Total Selected Male',
                         data: totalSelectedM,
-                        borderColor: 'rgba(102, 126, 234, 1)',
-                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.15)',
+                        borderWidth: 3,
                         tension: 0.4,
-                        fill: true
+                        fill: true,
+                        pointRadius: 6,
+                        pointBackgroundColor: '#667eea',
+                        pointBorderColor: 'white',
+                        pointBorderWidth: 2,
+                        pointHoverRadius: 8
                     },
                     {
                         label: 'Total Selected Female',
                         data: totalSelectedF,
-                        borderColor: 'rgba(118, 75, 162, 1)',
-                        backgroundColor: 'rgba(118, 75, 162, 0.1)',
+                        borderColor: '#764ba2',
+                        backgroundColor: 'rgba(118, 75, 162, 0.15)',
+                        borderWidth: 3,
                         tension: 0.4,
-                        fill: true
+                        fill: true,
+                        pointRadius: 6,
+                        pointBackgroundColor: '#764ba2',
+                        pointBorderColor: 'white',
+                        pointBorderWidth: 2,
+                        pointHoverRadius: 8
                     }
                 ]
             },
@@ -1428,7 +1609,12 @@ const AdminPanel = {
                 plugins: {
                     legend: {
                         labels: {
-                            color: 'white'
+                            color: 'white',
+                            font: {
+                                size: 12,
+                                weight: 'bold'
+                            },
+                            padding: 20
                         }
                     },
                     title: {
@@ -1436,18 +1622,31 @@ const AdminPanel = {
                         text: 'PSLCE Selection Trends by Year',
                         color: 'white',
                         font: {
-                            size: 16
-                        }
+                            size: 18,
+                            weight: 'bold'
+                        },
+                        padding: 20
                     }
                 },
                 scales: {
                     x: {
-                        ticks: { color: 'white' },
+                        ticks: { 
+                            color: 'white',
+                            font: {
+                                size: 11
+                            }
+                        },
                         grid: { color: 'rgba(255, 255, 255, 0.1)' }
                     },
                     y: {
-                        ticks: { color: 'white' },
-                        grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        ticks: { 
+                            color: 'white',
+                            font: {
+                                size: 11
+                            }
+                        },
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                        beginAtZero: true
                     }
                 }
             }
@@ -1455,15 +1654,25 @@ const AdminPanel = {
     }
 };
 
-document.addEventListener('DOMContentLoaded', () => {
-    // Clear all localStorage data to start fresh
-    localStorage.removeItem('mzimba_zones');
-    localStorage.removeItem('mzimba_schools');
-    localStorage.removeItem('mzimba_enrollment');
-    localStorage.removeItem('mzimba_pslce');
-    localStorage.removeItem('mzimba_particulars');
-    localStorage.removeItem('mzimba_uploads');
-    
+const SupabaseStatus = {
+    update() {
+        const message = DataStore.getConnectionStatus();
+        document.querySelectorAll('.supabase-status-badge').forEach(el => {
+            if (!el) return;
+            el.textContent = message;
+            el.classList.remove('connected', 'local', 'error');
+            const text = message.toLowerCase();
+            if (text.includes('connected')) el.classList.add('connected');
+            else if (text.includes('local')) el.classList.add('local');
+            else if (text.includes('failed') || text.includes('missing') || text.includes('error')) el.classList.add('error');
+            else el.classList.add('local');
+        });
+    }
+};
+
+document.addEventListener('DOMContentLoaded', async () => {
+    await DataStore.init();
+    SupabaseStatus.update();
     Screens.init();
     SplashScreen.init();
     DistrictPasswordScreen.init();

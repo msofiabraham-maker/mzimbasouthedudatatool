@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="style.css">
     <link rel="icon" type="image/png" href="./Icon.png">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
 </head>
 <body>
     <div id="app">
@@ -71,13 +72,18 @@
 
         <section id="school-dashboard-screen" class="screen">
             <div class="dashboard-header">
-                <img src="./Icon.png" alt="Mzimba South EduData Hub Icon" class="system-icon header-icon">
-                <h2 id="dashboard-school-name">School Dashboard</h2>
+                <div class="header-title-group">
+                    <img src="./Icon.png" alt="Mzimba South EduData Hub Icon" class="system-icon header-icon">
+                    <div>
+                        <h2 id="dashboard-school-name">School Dashboard</h2>
+                        <span class="supabase-status-badge">Supabase: checking...</span>
+                    </div>
+                </div>
                 <button id="logout-btn" class="btn-secondary">Logout</button>
             </div>
             <div class="dashboard-cards">
                 <div class="dashboard-card" data-category="particulars">
-                    <div class="card-icon">🏫</div>
+                    <div class="card-icon">📋</div>
                     <h3>School Particulars</h3>
                     <p>View school information</p>
                 </div>
@@ -150,8 +156,13 @@
 
         <section id="admin-dashboard-screen" class="screen">
             <div class="admin-header">
-                <img src="./Icon.png" alt="Mzimba South EduData Hub Icon" class="system-icon header-icon">
-                <h2>Admin Dashboard</h2>
+                <div class="header-title-group">
+                    <img src="./Icon.png" alt="Mzimba South EduData Hub Icon" class="system-icon header-icon">
+                    <div>
+                        <h2>Admin Dashboard</h2>
+                        <span class="supabase-status-badge">Supabase: checking...</span>
+                    </div>
+                </div>
                 <button id="admin-logout-btn" class="btn-secondary">Logout</button>
             </div>
             <div class="admin-tabs">
@@ -162,6 +173,7 @@
                 <button class="admin-tab" data-tab="pslce">PSLCE</button>
                 <button class="admin-tab" data-tab="history">History</button>
             </div>
+            <!-- Note: Particulars is already positioned between zones and schools in the tabs -->
             <div class="admin-content">
                 <div id="admin-zones" class="admin-panel active">
                     <div class="admin-form">
@@ -179,7 +191,6 @@
                         <input type="text" id="particulars-phone" placeholder="Phone Number">
                         <input type="text" id="particulars-email" placeholder="Email Address">
                         <input type="text" id="particulars-address" placeholder="Physical Address">
-                        <input type="text" id="particulars-distance-dem" placeholder="Distance to the DEM's Office (km)">
                         <button id="upload-particulars-btn" class="btn-primary">Upload</button>
                     </div>
                     <div id="particulars-list" class="admin-list"></div>
@@ -200,6 +211,7 @@
                         <input type="text" id="new-school-postal-address" placeholder="Postal Address">
                         <input type="text" id="new-school-distance-primary" placeholder="Distance From Nearest Public Primary School (km)">
                         <input type="text" id="new-school-distance-tdc" placeholder="Distance To TDC (km)">
+                        <input type="text" id="new-school-distance-dem" placeholder="Distance to the DEM's Office (km)">
                         <input type="text" id="new-school-year-established" placeholder="Year Established">
                         <button id="add-school-btn" class="btn-primary">Add School</button>
                     </div>
@@ -214,22 +226,26 @@
                         <select id="enrollment-year">
                             <option value="">Select Year</option>
                         </select>
-                        <input type="text" id="enrollment-std1m" placeholder="STD1 Male">
-                        <input type="text" id="enrollment-std1f" placeholder="STD1 Female">
-                        <input type="text" id="enrollment-std2m" placeholder="STD2 Male">
-                        <input type="text" id="enrollment-std2f" placeholder="STD2 Female">
-                        <input type="text" id="enrollment-std3m" placeholder="STD3 Male">
-                        <input type="text" id="enrollment-std3f" placeholder="STD3 Female">
-                        <input type="text" id="enrollment-std4m" placeholder="STD4 Male">
-                        <input type="text" id="enrollment-std4f" placeholder="STD4 Female">
-                        <input type="text" id="enrollment-std5m" placeholder="STD5 Male">
-                        <input type="text" id="enrollment-std5f" placeholder="STD5 Female">
-                        <input type="text" id="enrollment-std6m" placeholder="STD6 Male">
-                        <input type="text" id="enrollment-std6f" placeholder="STD6 Female">
-                        <input type="text" id="enrollment-std7m" placeholder="STD7 Male">
-                        <input type="text" id="enrollment-std7f" placeholder="STD7 Female">
-                        <input type="text" id="enrollment-std8m" placeholder="STD8 Male">
-                        <input type="text" id="enrollment-std8f" placeholder="STD8 Female">
+                        <input type="number" id="enrollment-std1m" placeholder="STD1 Male" min="0">
+                        <input type="number" id="enrollment-std1f" placeholder="STD1 Female" min="0">
+                        <input type="number" id="enrollment-std2m" placeholder="STD2 Male" min="0">
+                        <input type="number" id="enrollment-std2f" placeholder="STD2 Female" min="0">
+                        <input type="number" id="enrollment-std3m" placeholder="STD3 Male" min="0">
+                        <input type="number" id="enrollment-std3f" placeholder="STD3 Female" min="0">
+                        <input type="number" id="enrollment-std4m" placeholder="STD4 Male" min="0">
+                        <input type="number" id="enrollment-std4f" placeholder="STD4 Female" min="0">
+                        <input type="number" id="enrollment-std5m" placeholder="STD5 Male" min="0">
+                        <input type="number" id="enrollment-std5f" placeholder="STD5 Female" min="0">
+                        <input type="number" id="enrollment-std6m" placeholder="STD6 Male" min="0">
+                        <input type="number" id="enrollment-std6f" placeholder="STD6 Female" min="0">
+                        <input type="number" id="enrollment-std7m" placeholder="STD7 Male" min="0">
+                        <input type="number" id="enrollment-std7f" placeholder="STD7 Female" min="0">
+                        <input type="number" id="enrollment-std8m" placeholder="STD8 Male" min="0">
+                        <input type="number" id="enrollment-std8f" placeholder="STD8 Female" min="0">
+                        <div class="auto-calculated-totals">
+                            <p>TOTAL M: <span id="enrollment-total-m-display">0</span></p>
+                            <p>TOTAL F: <span id="enrollment-total-f-display">0</span></p>
+                        </div>
                         <button id="upload-enrollment-btn" class="btn-primary">Upload</button>
                     </div>
                     <div id="enrollment-list" class="admin-list"></div>
@@ -243,24 +259,26 @@
                         <select id="pslce-year">
                             <option value="">Select Year</option>
                         </select>
-                        <input type="text" id="pslce-entered-m" placeholder="ENTERED M">
-                        <input type="text" id="pslce-entered-f" placeholder="ENTERED F">
-                        <input type="text" id="pslce-sat-m" placeholder="SAT M">
-                        <input type="text" id="pslce-sat-f" placeholder="SAT F">
-                        <input type="text" id="pslce-passed-m" placeholder="PASSED M">
-                        <input type="text" id="pslce-passed-f" placeholder="PASSED F">
-                        <input type="text" id="pslce-failed-m" placeholder="FAILED M">
-                        <input type="text" id="pslce-failed-f" placeholder="FAILED F">
-                        <input type="text" id="pslce-national-sec-m" placeholder="NATIONAL SEC SCHOOL M">
-                        <input type="text" id="pslce-national-sec-f" placeholder="NATIONAL SEC SCHOOL F">
-                        <input type="text" id="pslce-district-ss-m" placeholder="DISTRICT SS M">
-                        <input type="text" id="pslce-district-ss-f" placeholder="DISTRICT SS F">
-                        <input type="text" id="pslce-day-sec-m" placeholder="DAY SEC SCHOOL M">
-                        <input type="text" id="pslce-day-sec-f" placeholder="DAY SEC SCHOOL F">
-                        <input type="text" id="pslce-cdss-m" placeholder="CDSS M">
-                        <input type="text" id="pslce-cdss-f" placeholder="CDSS F">
-                        <input type="text" id="pslce-total-selected-m" placeholder="TOTAL SELECTED M">
-                        <input type="text" id="pslce-total-selected-f" placeholder="TOTAL SELECTED F">
+                        <input type="number" id="pslce-entered-m" placeholder="ENTERED M" min="0">
+                        <input type="number" id="pslce-entered-f" placeholder="ENTERED F" min="0">
+                        <input type="number" id="pslce-sat-m" placeholder="SAT M" min="0">
+                        <input type="number" id="pslce-sat-f" placeholder="SAT F" min="0">
+                        <input type="number" id="pslce-passed-m" placeholder="PASSED M" min="0">
+                        <input type="number" id="pslce-passed-f" placeholder="PASSED F" min="0">
+                        <input type="number" id="pslce-failed-m" placeholder="FAILED M" min="0">
+                        <input type="number" id="pslce-failed-f" placeholder="FAILED F" min="0">
+                        <input type="number" id="pslce-national-sec-m" placeholder="NATIONAL SEC SCHOOL M" min="0">
+                        <input type="number" id="pslce-national-sec-f" placeholder="NATIONAL SEC SCHOOL F" min="0">
+                        <input type="number" id="pslce-district-ss-m" placeholder="DISTRICT SS M" min="0">
+                        <input type="number" id="pslce-district-ss-f" placeholder="DISTRICT SS F" min="0">
+                        <input type="number" id="pslce-day-sec-m" placeholder="DAY SEC SCHOOL M" min="0">
+                        <input type="number" id="pslce-day-sec-f" placeholder="DAY SEC SCHOOL F" min="0">
+                        <input type="number" id="pslce-cdss-m" placeholder="CDSS M" min="0">
+                        <input type="number" id="pslce-cdss-f" placeholder="CDSS F" min="0">
+                        <div class="auto-calculated-totals">
+                            <p>TOTAL SELECTED M: <span id="pslce-total-selected-m-display">0</span></p>
+                            <p>TOTAL SELECTED F: <span id="pslce-total-selected-f-display">0</span></p>
+                        </div>
                         <button id="upload-pslce-btn" class="btn-primary">Upload</button>
                     </div>
                     <div id="pslce-list" class="admin-list"></div>
