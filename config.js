@@ -22,7 +22,7 @@ const Config = {
 
     // Supabase Details
     // Paste your Supabase URL and anon key after creating the project.
-    supabaseUrl: 'https://nglpcjuaiqkxvvcgibbo.supabase.co/rest/v1/',
+    supabaseUrl: 'https://nglpcjuaiqkxvvcgibbo.supabase.co',
     supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5nbHBjanVhaXFreHZ2Y2dpYmJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyNTk5ODcsImV4cCI6MjA5NDgzNTk4N30.0aH0J75cCoE4x3TC1jIMM2ToBc3JS9eqIr5IwkwM8Pg'
 };
 
