@@ -255,6 +255,10 @@ body {
 }
 
 .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     width: 100%;
     padding: 15px;
     border: none;
@@ -289,9 +293,19 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
-.btn-secondary:hover {
+..btn-secondary:hover {
     background: rgba(255, 255, 255, 0.3);
     transform: translateY(-2px);
+}
+
+.btn-disabled,
+.btn-disabled:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: rgba(255, 255, 255, 0.6) !important;
+    cursor: not-allowed;
+    box-shadow: none !important;
+    transform: none !important;
+    opacity: 0.65;
 }
 
 .error-message {
@@ -562,6 +576,140 @@ body {
     text-align: center;
 }
 
+.admission-status-card {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1600;
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(30px);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    padding: 24px 28px;
+    max-width: 380px;
+    width: calc(100% - 40px);
+    animation: slideInDown 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes slideInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.admission-status-card.hide {
+    animation: slideOutUp 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes slideOutUp {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-30px);
+    }
+}
+
+.status-card-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: relative;
+}
+
+.status-icon {
+    font-size: 2.2rem;
+    flex-shrink: 0;
+    animation: iconBounce 2s ease-in-out infinite;
+}
+
+@keyframes iconBounce {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-8px) scale(1.08); }
+}
+
+.status-text {
+    flex: 1;
+}
+
+.status-text h4 {
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 1.05rem;
+    margin: 0 0 6px 0;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+
+.status-text p {
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 0.95rem;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.status-close-btn {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 50%;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(10px);
+}
+
+.status-close-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+    color: white;
+    transform: scale(1.1);
+}
+
+@media (max-width: 768px) {
+    .admission-status-card {
+        top: 10px;
+        right: 10px;
+        width: calc(100% - 20px);
+        max-width: 100%;
+        padding: 18px 20px;
+        border-radius: 16px;
+    }
+
+    .status-icon {
+        font-size: 1.8rem;
+    }
+
+    .status-text h4 {
+        font-size: 0.95rem;
+    }
+
+    .status-text p {
+        font-size: 0.85rem;
+    }
+
+    .status-close-btn {
+        width: 28px;
+        height: 28px;
+        font-size: 1rem;
+    }
+}
+
 .admission-screen-content {
     width: 100%;
     max-width: 900px;
@@ -695,11 +843,18 @@ body {
     color: white;
     outline: none;
     font-size: 1rem;
+    transition: all 0.3s ease;
 }
 
 .admission-form-field input::placeholder,
 .admission-form-field select::placeholder {
     color: rgba(255, 255, 255, 0.6);
+}
+
+.cin-field-wrapper {
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+                opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                margin 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .admission-actions {
@@ -1028,7 +1183,16 @@ body {
 
 .list-item-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 10px;
+    align-items: center;
+}
+
+.list-item-actions .btn-primary,
+.list-item-actions .btn-delete,
+.list-item-actions .btn-edit {
+    width: auto;
+    min-width: 120px;
 }
 
 .btn-edit {
@@ -1048,7 +1212,12 @@ body {
 }
 
 .btn-delete {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     padding: 8px 15px;
+    min-width: 110px;
     background: rgba(239, 68, 68, 0.3);
     border: 1px solid rgba(239, 68, 68, 0.5);
     border-radius: 6px;
@@ -1056,11 +1225,19 @@ body {
     cursor: pointer;
     transition: all 0.3s ease;
     font-size: 0.85rem;
+    white-space: nowrap;
 }
 
 .btn-delete:hover {
     background: rgba(239, 68, 68, 0.5);
     transform: scale(1.05);
+}
+
+.button-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
 }
 
 .popup {
@@ -1124,8 +1301,106 @@ body {
     font-weight: 600;
 }
 
-.admin-progress-indicator {
+/* Confirm delete modal specific styling */
+.confirm-delete-modal {
+    max-width: 520px;
+    position: relative;
+}
+
+.confirm-delete-modal h2 {
+    color: white;
+    margin-bottom: 12px;
+}
+
+.confirm-delete-modal p {
+    color: rgba(255,255,255,0.9);
+    margin-bottom: 14px;
+}
+
+.confirm-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: rgba(255,255,255,0.9);
+    font-size: 0.95rem;
+}
+
+.confirm-option input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 18px;
+    border-radius: 999px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.status-open {
+    background: rgba(16, 185, 129, 0.18);
+    color: #047857;
+    border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.status-closed {
+    background: rgba(248, 113, 113, 0.15);
+    color: #991b1b;
+    border: 1px solid rgba(248, 113, 113, 0.35);
+}
+
+.loading-overlay {
     position: fixed;
+    inset: 0;
+    z-index: 2500;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(10px);
+}
+
+.loading-overlay.active {
+    display: flex;
+}
+
+.loading-content {
+    width: min(420px, 90%);
+    background: rgba(255, 255, 255, 0.96);
+    border-radius: 24px;
+    padding: 32px 30px;
+    text-align: center;
+    box-shadow: 0 24px 80px rgba(15, 23, 42, 0.35);
+}
+
+.loading-spinner {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 24px;
+    border: 7px solid rgba(16, 185, 129, 0.2);
+    border-top-color: #10b981;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.loading-content p {
+    color: #111827;
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.admin-progress-indicator {
     top: 20px;
     right: 20px;
     z-index: 3000;

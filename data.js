@@ -628,12 +628,12 @@ const DataStore = {
     },
 
     async addAdmissionWindow(data) {
-        if (!data || !data.openTimestamp || !data.closeTimestamp) {
-            throw new Error('Admission window needs open and close timestamps');
+        if (!data || !data.openTimestamp) {
+            throw new Error('Admission window requires an open timestamp');
         }
         const record = {
             openTimestamp: data.openTimestamp,
-            closeTimestamp: data.closeTimestamp,
+            closeTimestamp: data.closeTimestamp === undefined ? null : data.closeTimestamp,
             created_at: new Date().toISOString()
         };
 

@@ -42,11 +42,20 @@ const Screens = {
     },
     
     show(screenName) {
+        if (!screenName || !this.screens[screenName]) {
+            console.warn('Screens.show: Invalid screen', screenName);
+            return;
+        }
         Object.values(this.screens).forEach(screen => {
-            screen.classList.remove('active');
+            if (screen && screen.classList) screen.classList.remove('active');
         });
-        this.screens[screenName].classList.add('active');
-        AppState.currentScreen = screenName;
+        const screen = this.screens[screenName];
+        if (screen && screen.classList) {
+            screen.classList.add('active');
+            AppState.currentScreen = screenName;
+            // Update admission status card when screen changes
+            AdmissionUtils.updateStatusCard();
+        }
     }
 };
 
@@ -94,17 +103,12 @@ const DistrictPasswordScreen = {
 };
 
 const AdmissionUtils = {
-    bannerTimer: null,
+    // legacy helpers removed: timer-based auto-closing is disabled
 
     safeDate(value) {
         if (value === null || value === undefined || value === '') return null;
         const date = new Date(value);
         return isNaN(date.getTime()) ? null : date;
-    },
-
-    isValidWindow(windowData) {
-        if (!windowData || typeof windowData !== 'object') return false;
-        return Boolean(this.safeDate(windowData.openTimestamp) && this.safeDate(windowData.closeTimestamp));
     },
 
     isAdmissionWorkflowScreen() {
@@ -119,76 +123,67 @@ const AdmissionUtils = {
         return allowedScreens.has(AppState.currentScreen);
     },
 
-    async refreshAdmissionWindow() {
+    refreshAdmissionWindow() {
         const latest = typeof DataStore.getLatestAdmissionWindow === 'function'
             ? DataStore.getLatestAdmissionWindow()
             : null;
 
-        if (!latest || !this.isValidWindow(latest)) {
-            AppState.admissionWindow = null;
-            this.updateBanner();
-            return;
-        }
-
-        AppState.admissionWindow = latest;
+        AppState.admissionWindow = latest || null;
+        // update UI elements to reflect manual-open/manual-close state
         this.updateBanner();
+        this.updateStatusCard();
     },
 
+    // Admission is open when the latest window record exists and has no closeTimestamp
     isOpen() {
         if (!AppState.admissionWindow) return false;
-        const now = new Date();
-        const openTs = this.safeDate(AppState.admissionWindow.openTimestamp);
-        const closeTs = this.safeDate(AppState.admissionWindow.closeTimestamp);
-        if (!openTs || !closeTs) return false;
-        return openTs <= closeTs && now >= openTs && now <= closeTs;
+        return AppState.admissionWindow.closeTimestamp === null || AppState.admissionWindow.closeTimestamp === undefined;
     },
 
+    updateStatusCard() {
+        const statusCard = document.getElementById('admission-status-card');
+        const title = document.getElementById('admission-status-title');
+        const message = document.getElementById('admission-status-message');
+        const closeBtn = document.getElementById('close-status-card');
+
+        if (!statusCard) return;
+
+        if (this.isAdmissionWorkflowScreen()) {
+            if (this.isOpen()) {
+                title.textContent = 'Admission Registration Open';
+                message.textContent = 'Primary School Admission Registration Is Now Open';
+                statusCard.style.display = 'block';
+            } else {
+                title.textContent = 'Admission Window Closed';
+                message.textContent = 'Admission Window Is Currently Closed';
+                statusCard.style.display = 'block';
+                // If user is currently inside admission workflow, immediately block access
+                if (this.isAdmissionWorkflowScreen() && !this.isOpen()) {
+                    // navigate user out to options screen to prevent further admission actions
+                    Screens.show('district-options-screen');
+                }
+            }
+
+            if (!closeBtn.hasListener) {
+                closeBtn.addEventListener('click', () => {
+                    statusCard.classList.add('hide');
+                    setTimeout(() => {
+                        statusCard.style.display = 'none';
+                        statusCard.classList.remove('hide');
+                    }, 500);
+                });
+                closeBtn.hasListener = true;
+            }
+        } else {
+            statusCard.style.display = 'none';
+        }
+    },
+
+    // Keep the banner hidden; the status card is the single source of admission status in the workflow
     updateBanner() {
         const banner = document.getElementById('admission-banner');
         if (!banner) return;
-        if (this.isAdmissionWorkflowScreen() && this.isOpen()) {
-            banner.style.display = 'block';
-            this.refreshCountdown();
-            if (!this.bannerTimer) {
-                this.bannerTimer = setInterval(() => this.refreshCountdown(), 1000);
-            }
-        } else {
-            banner.style.display = 'none';
-            if (this.bannerTimer) {
-                clearInterval(this.bannerTimer);
-                this.bannerTimer = null;
-            }
-        }
-    },
-
-    refreshCountdown() {
-        const closeTs = AppState.admissionWindow ? this.safeDate(AppState.admissionWindow.closeTimestamp) : null;
-        const daysEl = document.getElementById('countdown-days');
-        const hoursEl = document.getElementById('countdown-hours');
-        const minutesEl = document.getElementById('countdown-minutes');
-        const secondsEl = document.getElementById('countdown-seconds');
-        if (!closeTs || !daysEl || !hoursEl || !minutesEl || !secondsEl) {
-            this.updateBanner();
-            return;
-        }
-        const now = new Date();
-        const diff = closeTs - now;
-        if (diff <= 0) {
-            daysEl.textContent = '00d';
-            hoursEl.textContent = '00h';
-            minutesEl.textContent = '00m';
-            secondsEl.textContent = '00s';
-            this.updateBanner();
-            return;
-        }
-        const days = String(Math.floor(diff / 86400000)).padStart(2, '0');
-        const hours = String(Math.floor((diff % 86400000) / 3600000)).padStart(2, '0');
-        const minutes = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
-        const seconds = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
-        daysEl.textContent = `${days}d`;
-        hoursEl.textContent = `${hours}h`;
-        minutesEl.textContent = `${minutes}m`;
-        secondsEl.textContent = `${seconds}s`;
+        banner.style.display = 'none';
     }
 };
 
@@ -202,13 +197,16 @@ const AdmissionOptionScreen = {
             message.textContent = '';
             await AdmissionUtils.refreshAdmissionWindow();
             if (AdmissionUtils.isOpen()) {
-                AppState.selectedAdmissionZone = null;
-                AppState.selectedAdmissionSchool = null;
-                AppState.admissionDistrictNumber = null;
-                Screens.show('admission-zone-screen');
-                AdmissionZoneScreen.init();
+                AdminPanel.showSuccess('Primary School Admission Registration Is Now Open');
+                setTimeout(() => {
+                    AppState.selectedAdmissionZone = null;
+                    AppState.selectedAdmissionSchool = null;
+                    AppState.admissionDistrictNumber = null;
+                    Screens.show('admission-zone-screen');
+                    AdmissionZoneScreen.init();
+                }, 600);
             } else {
-                message.textContent = 'Admission Window Is Currently Closed';
+                AdminPanel.showSuccess('Admission Window Is Currently Closed');
             }
         });
 
@@ -389,7 +387,10 @@ const AdmissionMainScreen = {
         const submitBtn = document.getElementById('admission-submit-btn');
 
         schoolDisplay.textContent = AppState.selectedAdmissionSchool ? `${AppState.selectedAdmissionSchool.name} (${AppState.selectedAdmissionSchool.emis})` : '';
+        
+        // Hide registered learners initially
         document.getElementById('admission-registered-learners').innerHTML = '';
+        document.getElementById('admission-registered-learners').style.display = 'none';
 
         newAdmissionBtn.addEventListener('click', () => {
             AppState.admissionFormStep = 1;
@@ -403,25 +404,32 @@ const AdmissionMainScreen = {
         });
 
         showRegisteredBtn.addEventListener('click', () => {
-            this.renderRegisteredLearners();
+            this.toggleRegisteredLearners();
         });
 
-        submitBtn.addEventListener('click', async () => {
+        submitBtn.addEventListener('click', () => {
             const learners = DataStore.getAdmissionsBySchool(AppState.selectedAdmissionSchool.emis);
             if (learners.length === 0) {
                 alert('No learners registered yet for this school. Please add learner admissions first.');
                 return;
             }
-            try {
-                await AdmissionFormScreen.createExport();
-                alert('Excel sheet generated and saved for admin access.');
-            } catch (err) {
-                console.error(err);
-                alert('Failed to generate admission Excel sheet.');
-            }
+            AdminPanel.showSuccess('Learner records saved. Use the admin admission section to download Excel.');
         });
+    },
 
-        this.renderRegisteredLearners();
+    toggleRegisteredLearners() {
+        const container = document.getElementById('admission-registered-learners');
+        const btn = document.getElementById('show-registered-btn');
+        
+        if (container.style.display === 'none') {
+            this.renderRegisteredLearners();
+            container.style.display = 'block';
+            btn.querySelector('h3').textContent = 'Hide Registered Learners';
+        } else {
+            container.innerHTML = '';
+            container.style.display = 'none';
+            btn.querySelector('h3').textContent = 'Show Registered Learners';
+        }
     },
 
     renderRegisteredLearners() {
@@ -592,12 +600,12 @@ const AdmissionFormScreen = {
                                 <option value="No" ${data.ecdAttendance === 'No' ? 'selected' : ''}>No</option>
                             </select>
                         </div>
-                        ${data.ecdAttendance === 'Yes' ? `
+                        <div id="cin-field-wrapper" class="cin-field-wrapper" style="max-height: ${data.ecdAttendance === 'Yes' ? '500px' : '0'}; opacity: ${data.ecdAttendance === 'Yes' ? '1' : '0'}; overflow: hidden; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);">
                             <div class="admission-form-field">
                                 <label>CIN</label>
                                 <input type="text" id="form-cinNumber" value="${data.cinNumber || ''}" placeholder="CIN">
                             </div>
-                        ` : ''}
+                        </div>
                     </div>
                 `;
                 break;
@@ -636,7 +644,6 @@ const AdmissionFormScreen = {
                 AppState.admissionFormData.lin = generatedLin;
                 html = `
                     <h3>Step 10: LIN Generation</h3>
-                    <div class="admission-loading active" id="admission-lin-loading">Generating LIN. Please remain patient.</div>
                     <div class="admission-form-grid" style="margin-top:20px;">
                         <div class="admission-form-field">
                             <label>Generated LIN</label>
@@ -669,16 +676,25 @@ const AdmissionFormScreen = {
         }
 
         container.innerHTML = html;
-        if (step === 10) {
-            setTimeout(() => {
-                const loading = document.getElementById('admission-lin-loading');
-                if (loading) {
-                    loading.textContent = 'LIN generated successfully.';
-                }
-                document.getElementById('admission-form-next-btn').textContent = 'Next';
-            }, 1200);
+        const nextBtn = document.getElementById('admission-form-next-btn');
+        if (nextBtn) {
+            nextBtn.textContent = step === 11 ? 'Save' : 'Next';
         }
         document.getElementById('admission-form-back-btn').disabled = step === 1;
+
+        // Add ECD attendance listener for smooth CIN field transitions
+        if (step === 7) {
+            const ecdSelect = document.getElementById('form-ecdAttendance');
+            const cinWrapper = document.getElementById('cin-field-wrapper');
+            
+            if (ecdSelect && cinWrapper) {
+                ecdSelect.addEventListener('change', (e) => {
+                    const isYes = e.target.value === 'Yes';
+                    cinWrapper.style.maxHeight = isYes ? '500px' : '0';
+                    cinWrapper.style.opacity = isYes ? '1' : '0';
+                });
+            }
+        }
     },
 
     collectValues() {
@@ -866,9 +882,8 @@ const AdmissionFormScreen = {
             timestamp: new Date().toISOString()
         };
 
-        const saved = await DataStore.addAdmission(record);
-        await this.createExport();
-        alert('Learner registered successfully. Admission Excel sheet generated.');
+        await DataStore.addAdmission(record);
+        AdminPanel.showSuccess('Admission successfully saved.');
         Screens.show('admission-main-screen');
         AdmissionMainScreen.init();
     },
@@ -1587,8 +1602,58 @@ const AdminPanel = {
         }
         const progressIndicator = document.getElementById('admin-progress-indicator');
         const progressBar = document.getElementById('admin-progress-bar');
-        progressIndicator.classList.remove('active');
-        progressBar.style.width = '0%';
+        if (progressIndicator) progressIndicator.classList.remove('active');
+        if (progressBar) progressBar.style.width = '0%';
+    },
+
+    safeExecute(fn) {
+        try {
+            if (typeof fn === 'function') fn();
+        } catch (error) {
+            console.error('AdminPanel safeExecute error', error);
+        }
+    },
+
+    safeExecuteAsync(fn) {
+        if (typeof fn !== 'function') return Promise.resolve();
+        return Promise.resolve()
+            .then(() => fn())
+            .catch(error => {
+                console.error('AdminPanel safeExecuteAsync error', error);
+            });
+    },
+
+    getScreenElement(screenName) {
+        return Screens.screens[screenName] || document.getElementById(screenName);
+    },
+
+    activateDefaultAdminTab() {
+        const tabs = document.querySelectorAll('.admin-tab');
+        const panels = document.querySelectorAll('.admin-panel');
+        const defaultTab = document.querySelector('.admin-tab[data-tab="zones"]');
+        const defaultPanel = document.getElementById('admin-zones');
+
+        tabs.forEach(tab => tab.classList.remove('active'));
+        panels.forEach(panel => panel.classList.remove('active'));
+
+        if (defaultTab) defaultTab.classList.add('active');
+        if (defaultPanel) defaultPanel.classList.add('active');
+    },
+
+    openAdminDashboard() {
+        const loginScreen = this.getScreenElement('admin-login-screen');
+        const adminScreen = this.getScreenElement('admin-dashboard-screen');
+
+        if (loginScreen && loginScreen.classList.contains('active')) {
+            loginScreen.classList.remove('active');
+        }
+
+        if (adminScreen) {
+            adminScreen.classList.add('active');
+            AppState.currentScreen = 'admin-dashboard-screen';
+        }
+
+        this.activateDefaultAdminTab();
     },
     
     initAdminLogin() {
@@ -1600,47 +1665,57 @@ const AdminPanel = {
         const errorDisplay = document.getElementById('admin-error');
         const recoveryLink = document.getElementById('admin-recovery-link');
         
-        closeBtn.addEventListener('click', () => {
-            Screens.show(AppState.currentScreen === 'admin-login-screen' ? 'district-password-screen' : AppState.currentScreen);
-        });
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                Screens.show(AppState.currentScreen === 'admin-login-screen' ? 'district-password-screen' : AppState.currentScreen);
+            });
+        }
         
-        toggleBtn.addEventListener('click', () => {
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                toggleBtn.textContent = '🙈';
-            } else {
-                passwordInput.type = 'password';
-                toggleBtn.textContent = '👁️';
-            }
-        });
+        if (toggleBtn && passwordInput) {
+            toggleBtn.addEventListener('click', () => {
+                if (passwordInput.type === 'password') {
+                    passwordInput.type = 'text';
+                    toggleBtn.textContent = '🙈';
+                } else {
+                    passwordInput.type = 'password';
+                    toggleBtn.textContent = '👁️';
+                }
+            });
+        }
         
-        loginBtn.addEventListener('click', () => {
-            const enteredUsername = usernameInput.value.trim();
-            const enteredPassword = passwordInput.value;
+        if (loginBtn && usernameInput && passwordInput) {
+            loginBtn.addEventListener('click', () => {
+                const enteredUsername = usernameInput.value.trim();
+                const enteredPassword = passwordInput.value;
 
-            if (enteredUsername === String(AppState.adminUsername).trim() && enteredPassword === String(AppState.adminPassword)) {
-                errorDisplay.textContent = '';
-                AppState.isAdminLoggedIn = true;
-                usernameInput.value = '';
-                passwordInput.value = '';
-                this.loadAdminData();
-                Screens.show('admin-dashboard-screen');
-            } else {
-                errorDisplay.textContent = 'Invalid username or password';
-                passwordInput.value = '';
-            }
-        });
+                if (enteredUsername === String(AppState.adminUsername).trim() && enteredPassword === String(AppState.adminPassword)) {
+                    if (errorDisplay) errorDisplay.textContent = '';
+                    AppState.isAdminLoggedIn = true;
+                    usernameInput.value = '';
+                    passwordInput.value = '';
+                    this.safeExecute(() => this.loadAdminData());
+                    this.openAdminDashboard();
+                } else {
+                    if (errorDisplay) errorDisplay.textContent = 'Invalid username or password';
+                    passwordInput.value = '';
+                }
+            });
+        }
         
-        passwordInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                loginBtn.click();
-            }
-        });
+        if (passwordInput) {
+            passwordInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    if (loginBtn) loginBtn.click();
+                }
+            });
+        }
         
-        recoveryLink.addEventListener('click', () => {
-            AdminRecoveryScreen.init();
-            Screens.show('admin-recovery-screen');
-        });
+        if (recoveryLink) {
+            recoveryLink.addEventListener('click', () => {
+                AdminRecoveryScreen.init();
+                Screens.show('admin-recovery-screen');
+            });
+        }
     },
     
     initAdminDashboard() {
@@ -1648,10 +1723,12 @@ const AdminPanel = {
         const tabs = document.querySelectorAll('.admin-tab');
         const panels = document.querySelectorAll('.admin-panel');
         
-        logoutBtn.addEventListener('click', () => {
-            AppState.isAdminLoggedIn = false;
-            Screens.show('district-password-screen');
-        });
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => {
+                AppState.isAdminLoggedIn = false;
+                Screens.show('district-password-screen');
+            });
+        }
 
         const admissionAccessBtn = document.getElementById('admin-admission-btn');
         if (admissionAccessBtn) {
@@ -1674,30 +1751,31 @@ const AdminPanel = {
                 tabs.forEach(t => t.classList.remove('active'));
                 panels.forEach(p => p.classList.remove('active'));
                 tab.classList.add('active');
-                document.getElementById(`admin-${tab.dataset.tab}`).classList.add('active');
+                const panel = document.getElementById(`admin-${tab.dataset.tab}`);
+                if (panel) panel.classList.add('active');
             });
         });
         
-        this.initZonesPanel();
-        this.initSchoolsPanel();
-        this.initEnrollmentPanel();
-        this.initPSLCEPanel();
-        this.initParticularsPanel();
-        this.initHistoryPanel();
-        this.initAdmissionPanel();
+        this.safeExecute(() => this.initZonesPanel());
+        this.safeExecute(() => this.initSchoolsPanel());
+        this.safeExecute(() => this.initEnrollmentPanel());
+        this.safeExecute(() => this.initPSLCEPanel());
+        this.safeExecute(() => this.initParticularsPanel());
+        this.safeExecute(() => this.initHistoryPanel());
+        this.safeExecute(() => this.initAdmissionPanel());
     },
     
     loadAdminData() {
-        this.loadZones();
-        this.loadSchools();
-        this.loadEnrollment();
-        this.loadPSLCE();
-        this.loadParticulars();
-        this.loadHistory();
-        this.loadAdmissionWindow();
-        this.loadAdmissionExports();
-        this.populateZoneSelect();
-        this.populateYearSelects();
+        this.safeExecute(() => this.loadZones());
+        this.safeExecute(() => this.loadSchools());
+        this.safeExecute(() => this.loadEnrollment());
+        this.safeExecute(() => this.loadPSLCE());
+        this.safeExecute(() => this.loadParticulars());
+        this.safeExecute(() => this.loadHistory());
+        this.safeExecute(() => this.loadAdmissionWindow());
+        this.safeExecute(() => this.loadAdmissionExports());
+        this.safeExecute(() => this.populateZoneSelect());
+        this.safeExecute(() => this.populateYearSelects());
         this.populateSchoolSelects();
     },
 
@@ -2434,103 +2512,289 @@ const AdminPanel = {
     },
 
     initAdmissionPanel() {
-        const windowBtn = document.getElementById('set-admission-window-btn');
-        windowBtn.addEventListener('click', async () => {
-            const openDate = document.getElementById('admission-open-date').value;
-            const openTime = document.getElementById('admission-open-time').value;
-            const closeDate = document.getElementById('admission-close-date').value;
-            const closeTime = document.getElementById('admission-close-time').value;
-            if (!openDate || !openTime || !closeDate || !closeTime) {
-                alert('Please enter both opening and closing date/time');
-                return;
-            }
-            const openTimestamp = new Date(`${openDate}T${openTime}`);
-            const closeTimestamp = new Date(`${closeDate}T${closeTime}`);
-            if (openTimestamp >= closeTimestamp) {
-                alert('Closing date/time must be after opening date/time');
-                return;
-            }
-            await DataStore.addAdmissionWindow({ openTimestamp: openTimestamp.toISOString(), closeTimestamp: closeTimestamp.toISOString() });
+        const openBtn = document.getElementById('open-admission-window-btn');
+        const closeBtn = document.getElementById('close-admission-window-btn');
+
+        openBtn.addEventListener('click', async () => {
+            await DataStore.addAdmissionWindow({ openTimestamp: new Date().toISOString(), closeTimestamp: null });
             this.loadAdmissionWindow();
-            AdmissionUtils.refreshAdmissionWindow();
-            alert('Admission window updated successfully');
+            AdminPanel.showSuccess('Admission Window Successfully Opened');
+        });
+
+        closeBtn.addEventListener('click', async () => {
+            const latest = DataStore.getLatestAdmissionWindow();
+            const openTimestamp = AdmissionUtils.safeDate(latest?.openTimestamp)
+                ? latest.openTimestamp
+                : new Date().toISOString();
+
+            await DataStore.addAdmissionWindow({ openTimestamp, closeTimestamp: new Date().toISOString() });
+            this.loadAdmissionWindow();
+            AdminPanel.showSuccess('Admission Window Successfully Closed');
         });
     },
 
+    updateAdmissionStatusDisplay() {
+        const statusBadge = document.getElementById('admission-window-status');
+        if (!statusBadge) return;
+        if (AppState.admissionWindow && AdmissionUtils.isOpen()) {
+            statusBadge.textContent = 'OPEN';
+            statusBadge.className = 'status-badge status-open';
+        } else {
+            statusBadge.textContent = 'CLOSED';
+            statusBadge.className = 'status-badge status-closed';
+        }
+    },
+
+    updateAdmissionControls() {
+        const openBtn = document.getElementById('open-admission-window-btn');
+        const closeBtn = document.getElementById('close-admission-window-btn');
+        if (!openBtn || !closeBtn) return;
+
+        const isOpen = AppState.admissionWindow && AdmissionUtils.isOpen();
+        openBtn.disabled = isOpen;
+        closeBtn.disabled = !isOpen;
+        openBtn.classList.toggle('btn-disabled', isOpen);
+        closeBtn.classList.toggle('btn-disabled', !isOpen);
+    },
+
     loadAdmissionWindow() {
-        const latest = DataStore.getLatestAdmissionWindow();
-        if (!latest || !AdmissionUtils.isValidWindow(latest)) {
-            AppState.admissionWindow = null;
-            AdmissionUtils.refreshAdmissionWindow();
-            return;
-        }
-
-        const openAt = AdmissionUtils.safeDate(latest.openTimestamp);
-        const closeAt = AdmissionUtils.safeDate(latest.closeTimestamp);
-        if (!openAt || !closeAt) {
-            AppState.admissionWindow = null;
-            AdmissionUtils.refreshAdmissionWindow();
-            return;
-        }
-
-        AppState.admissionWindow = latest;
-        const windowData = document.getElementById('admin-admission');
-        if (windowData) {
-            const openDateInput = document.getElementById('admission-open-date');
-            const openTimeInput = document.getElementById('admission-open-time');
-            const closeDateInput = document.getElementById('admission-close-date');
-            const closeTimeInput = document.getElementById('admission-close-time');
-            if (openDateInput) openDateInput.value = openAt.toISOString().slice(0, 10);
-            if (openTimeInput) openTimeInput.value = openAt.toTimeString().slice(0, 5);
-            if (closeDateInput) closeDateInput.value = closeAt.toISOString().slice(0, 10);
-            if (closeTimeInput) closeTimeInput.value = closeAt.toTimeString().slice(0, 5);
-        }
         AdmissionUtils.refreshAdmissionWindow();
+        this.updateAdmissionStatusDisplay();
+        this.updateAdmissionControls();
     },
 
     loadAdmissionExports() {
         const list = document.getElementById('admission-exports-list');
-        const exportsData = DataStore.getAdmissionExports();
         if (!list) return;
-        if (!exportsData.length) {
-            list.innerHTML = '<p class="no-data">No admission exports available.</p>';
+
+        // Prefer stored exports (saved files), render them with download and delete options
+        const exports = DataStore.getAdmissionExports();
+        if (exports && exports.length) {
+            list.innerHTML = exports.map(exp => `
+                <div class="list-item" data-id="${exp.id}">
+                    <div class="list-item-info">
+                        <h4>${exp.schoolName || 'Unknown School'}</h4>
+                        <p>File: ${exp.filename}</p>
+                        <p>Total Learners: ${exp.totalLearners || 0}</p>
+                        <p>${new Date(exp.timestamp).toLocaleString()}</p>
+                    </div>
+                    <div class="list-item-actions">
+                        <button class="btn-primary export-download" data-id="${exp.id}"><span class="button-icon">⬇️</span>Download</button>
+                        <button class="btn-delete export-delete" data-id="${exp.id}"><span class="button-icon">🗑️</span>Delete</button>
+                    </div>
+                </div>
+            `).join('');
+
+            // Hook download buttons
+            list.querySelectorAll('.export-download').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const id = parseInt(btn.dataset.id, 10);
+                    const record = DataStore.getAdmissionExports().find(r => r.id === id);
+                    if (!record) return;
+                    try {
+                        await AdminPanel.downloadBase64File(record.fileBase64, record.filename);
+                        AdminPanel.showSuccess('Download started');
+                    } catch (err) {
+                        console.error(err);
+                        AdminPanel.showSuccess('Failed to download file');
+                    }
+                });
+            });
+
+            // Hook delete buttons
+            list.querySelectorAll('.export-delete').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const id = parseInt(btn.dataset.id, 10);
+                    AdminPanel.confirmDeleteExport(id);
+                });
+            });
             return;
         }
-        list.innerHTML = exportsData.map(item => `
-            <div class="list-item">
-                <div class="list-item-info">
-                    <h4>${item.schoolName}</h4>
-                    <p>Uploaded: ${new Date(item.timestamp).toLocaleString()}</p>
-                    <p>Total Learners: ${item.totalLearners}</p>
+
+        // Fallback: show per-school quick-generate downloads if no saved exports
+        const schools = DataStore.getSchools();
+        if (!schools.length) {
+            list.innerHTML = '<p class="no-data">No saved learner records available.</p>';
+            return;
+        }
+
+        const summaryHtml = schools.map(school => {
+            const learners = DataStore.getAdmissionsBySchool(school.emis);
+            return `
+                <div class="list-item">
+                    <div class="list-item-info">
+                        <h4>${school.name}</h4>
+                        <p>EMIS: ${school.emis}</p>
+                        <p>Total Learners: ${learners.length}</p>
+                    </div>
+                    <div class="list-item-actions">
+                        <button class="btn-primary" data-emis="${school.emis}" ${learners.length === 0 ? 'disabled' : ''}>
+                            Download Excel
+                        </button>
+                    </div>
                 </div>
-                <div class="list-item-actions">
-                    <button class="btn-primary" data-fileid="${item.id}">Download</button>
-                </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
+
+        list.innerHTML = summaryHtml || '<p class="no-data">No saved learner records available.</p>';
         list.querySelectorAll('.btn-primary').forEach(button => {
-            button.addEventListener('click', () => {
-                const id = parseInt(button.dataset.fileid, 10);
-                const exportItem = exportsData.find(item => item.id === id);
-                if (!exportItem) return;
-                const link = document.createElement('a');
-                const binary = atob(exportItem.fileBase64);
-                const bytes = new Uint8Array(binary.length);
-                for (let i = 0; i < binary.length; i += 1) {
-                    bytes[i] = binary.charCodeAt(i);
+            button.addEventListener('click', async () => {
+                const schoolEmis = button.dataset.emis;
+                const school = DataStore.getSchoolByEMIS(schoolEmis);
+                const learners = DataStore.getAdmissionsBySchool(schoolEmis);
+                if (!school || learners.length === 0) return;
+                try {
+                    await AdminPanel.showLoading('Generating Excel. Please wait...');
+                    const rows = learners.map(item => ({
+                        'School Name': item.schoolName,
+                        'EMIS': item.emis,
+                        'Zone': item.zone,
+                        'District Number': item.districtNumber,
+                        'Admission Year': item.yearAdmission,
+                        'Date of Admission': item.dateOfAdmission,
+                        'Child Name': item.childName,
+                        'Sex': item.sex,
+                        'Date of Birth': item.dateOfBirth,
+                        'Age (yrs)': item.ageYears,
+                        'Special Needs': item.specialNeeds || '',
+                        'District of Origin': item.originDistrict,
+                        'Religious Denomination': item.religiousDenomination,
+                        'Orphan Status': item.orphanStatus,
+                        'ECD Attendance': item.ecdAttendance,
+                        'CIN': item.cinNumber || '',
+                        'Parent/Guardian Name': item.parentGuardianName,
+                        'Parent/Guardian Phone': item.parentGuardianPhone,
+                        'Head Teacher Name': item.headTeacherName,
+                        'Head Teacher Phone': item.headTeacherPhone,
+                        'LIN': item.lin,
+                        'zEMIS Officer Name': item.zemisOfficerName,
+                        'zEMIS Officer Date': item.zemisOfficerDate,
+                        'zEMIS Officer Phone': item.zemisOfficerPhone,
+                        'Timestamp': item.timestamp
+                    }));
+                    const wb = XLSX.utils.book_new();
+                    const ws = XLSX.utils.json_to_sheet(rows);
+                    XLSX.utils.book_append_sheet(wb, ws, 'Admissions');
+                    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
+                    const filename = `${school.name.replace(/[^a-zA-Z0-9]/g, '_')}_Admissions.xlsx`;
+                    // Save metadata and binary to DataStore for later downloads
+                    await DataStore.addAdmissionExport({
+                        schoolEmis,
+                        schoolName: school.name,
+                        filename,
+                        fileBase64: wbout,
+                        totalLearners: learners.length
+                    });
+
+                    // Use fetch-based base64 -> blob download for maximum browser compatibility
+                    await AdminPanel.downloadBase64File(wbout, filename);
+                    AdminPanel.showSuccess('Excel successfully generated.');
+                    this.loadAdmissionExports();
+                } catch (err) {
+                    console.error(err);
+                    AdminPanel.showSuccess('Failed to generate Excel.');
                 }
-                const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-                const url = URL.createObjectURL(blob);
-                link.href = url;
-                link.download = exportItem.filename;
-                document.body.appendChild(link);
-                link.click();
-                link.remove();
-                URL.revokeObjectURL(url);
             });
         });
     },
+
+    base64ToBlob(base64, mime) {
+        const binary = atob(base64);
+        const length = binary.length;
+        const array = new Uint8Array(length);
+        for (let i = 0; i < length; i += 1) {
+            array[i] = binary.charCodeAt(i);
+        }
+        return new Blob([array], { type: mime });
+    },
+
+    async downloadBase64File(base64, filename) {
+        if (!base64 || !filename) throw new Error('Missing file data');
+        const mime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        const blob = this.base64ToBlob(base64, mime);
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+    },
+
+    confirmDeleteExport(exportId) {
+        const modal = document.getElementById('confirm-delete-export-modal');
+        const closeBtn = document.getElementById('close-confirm-delete');
+        const cancelBtn = document.getElementById('confirm-delete-cancel');
+        const yesBtn = document.getElementById('confirm-delete-yes');
+        const checkbox = document.getElementById('confirm-delete-associated');
+        const text = document.getElementById('confirm-delete-text');
+        if (!modal) return;
+
+        const record = DataStore.getAdmissionExports().find(r => r.id === exportId);
+        text.textContent = record && record.filename ? `Are you sure you want to delete '${record.filename}'?` : 'Are you sure you want to delete this admission sheet?';
+        checkbox.checked = false;
+
+        const closeModal = () => {
+            modal.classList.remove('active');
+        };
+
+        const cleanupHandlers = () => {
+            closeBtn.removeEventListener('click', closeModal);
+            cancelBtn.removeEventListener('click', closeModal);
+            yesBtn.removeEventListener('click', onConfirm);
+        };
+
+        const onConfirm = async () => {
+            const alsoDeleteAdmissions = checkbox.checked;
+            try {
+                // delete metadata record
+                await DataStore.deleteRecord('admission_export', exportId);
+
+                if (alsoDeleteAdmissions && record && record.schoolEmis) {
+                    const admissions = DataStore.getAdmissionsBySchool(record.schoolEmis);
+                    for (const a of admissions) {
+                        try { await DataStore.deleteRecord('admission', a.id); } catch (e) { console.error(e); }
+                    }
+                }
+
+                AdminPanel.showSuccess('Admission Sheet Deleted Successfully');
+                this.loadAdmissionExports();
+            } catch (err) {
+                console.error(err);
+                AdminPanel.showSuccess('Failed to delete admission sheet');
+            } finally {
+                cleanupHandlers();
+                closeModal();
+            }
+        };
+
+        // attach handlers
+        closeBtn.addEventListener('click', closeModal);
+        cancelBtn.addEventListener('click', closeModal);
+        yesBtn.addEventListener('click', onConfirm);
+
+        modal.classList.add('active');
+    },
     
+    showLoading(message, duration = 3000) {
+        return new Promise(resolve => {
+            const overlay = document.getElementById('loading-overlay');
+            const messageDisplay = document.getElementById('loading-message');
+            if (!overlay || !messageDisplay) {
+                resolve();
+                return;
+            }
+            messageDisplay.textContent = message;
+            overlay.classList.add('active');
+            setTimeout(() => {
+                overlay.classList.remove('active');
+                resolve();
+            }, duration);
+        });
+    },
+
     showSuccess(message) {
         const popup = document.getElementById('success-popup');
         const messageDisplay = document.getElementById('success-message');

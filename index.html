@@ -392,30 +392,16 @@
                     <div id="history-list" class="admin-list"></div>
                 </div>
                 <div id="admin-admission" class="admin-panel">
-                    <div class="admin-form">
+                        <div class="admin-form">
                         <h3>Primary Admission Registration</h3>
-                        <div class="admin-grid">
-                            <div class="form-group">
-                                <label>Opening Date</label>
-                                <input type="date" id="admission-open-date">
-                            </div>
-                            <div class="form-group">
-                                <label>Opening Time</label>
-                                <input type="time" id="admission-open-time">
-                            </div>
-                            <div class="form-group">
-                                <label>Closing Date</label>
-                                <input type="date" id="admission-close-date">
-                            </div>
-                            <div class="form-group">
-                                <label>Closing Time</label>
-                                <input type="time" id="admission-close-time">
-                            </div>
+                        <div class="admin-window-controls">
+                            <button id="open-admission-window-btn" class="btn-primary">Open Window</button>
+                            <button id="close-admission-window-btn" class="btn-secondary">Close Window</button>
+                            <span id="admission-window-status" class="status-badge status-closed">CLOSED</span>
                         </div>
-                        <button id="set-admission-window-btn" class="btn-primary">Set Admission Window</button>
                     </div>
                     <div class="admin-form">
-                        <h3>Admission Excel Sheets</h3>
+                        <h3>Saved Learner Records</h3>
                         <div id="admission-exports-list" class="admin-list"></div>
                     </div>
                 </div>
@@ -428,6 +414,17 @@
                 <div class="progress-bar-container">
                     <div id="admin-progress-bar" class="progress-bar"></div>
                 </div>
+            </div>
+        </div>
+
+        <div id="admission-status-card" class="admission-status-card" style="display: none;">
+            <div class="status-card-content">
+                <div class="status-icon">📝</div>
+                <div class="status-text">
+                    <h4 id="admission-status-title">Primary School Admission Registration</h4>
+                    <p id="admission-status-message">Checking status...</p>
+                </div>
+                <button id="close-status-card" class="status-close-btn">✕</button>
             </div>
         </div>
 
@@ -446,6 +443,26 @@
             <div class="popup-content">
                 <div class="popup-icon">✓</div>
                 <p id="success-message">Data uploaded successfully</p>
+            </div>
+        </div>
+        
+        <!-- Confirm delete export modal -->
+        <section id="confirm-delete-export-modal" class="screen modal">
+            <div class="glass-box confirm-delete-modal">
+                <button id="close-confirm-delete" class="close-modal">✕</button>
+                <h2>Delete Admission Sheet</h2>
+                <p id="confirm-delete-text">Are you sure you want to delete this admission sheet?</p>
+                <label class="confirm-option"><input type="checkbox" id="confirm-delete-associated"> Also delete associated admission records</label>
+                <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:18px;">
+                    <button id="confirm-delete-cancel" class="btn-secondary">Cancel</button>
+                    <button id="confirm-delete-yes" class="btn-primary">Delete</button>
+                </div>
+            </div>
+        </section>
+        <div id="loading-overlay" class="loading-overlay">
+            <div class="loading-content">
+                <div class="loading-spinner"></div>
+                <p id="loading-message">Loading Please Wait...</p>
             </div>
         </div>
     </div>
