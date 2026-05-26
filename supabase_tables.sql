@@ -7,6 +7,9 @@
 -- DROP OLD TABLES
 -- =====================================================
 
+drop table if exists public.admission_exports cascade;
+drop table if exists public.admission_window cascade;
+drop table if exists public.admissions cascade;
 drop table if exists public.upload_history cascade;
 drop table if exists public.pslce_results cascade;
 drop table if exists public.enrollment cascade;
@@ -208,6 +211,93 @@ create index idx_upload_history_category
 on public.upload_history(category);
 
 -- =====================================================
+-- ADMISSIONS
+-- =====================================================
+
+create table public.admissions (
+  id bigint generated always as identity primary key,
+
+  emis text not null,
+  schoolName text,
+  zone text,
+  districtNumber text,
+  yearAdmission integer,
+  dateOfAdmission text,
+
+  childName text,
+  sex text,
+  dateOfBirth text,
+  ageYears integer,
+  specialNeeds text,
+  originDistrict text,
+  religiousDenomination text,
+  orphanStatus text,
+  ecdAttendance text,
+  cinNumber text,
+
+  parentGuardianName text,
+  parentGuardianPhone text,
+  headTeacherName text,
+  headTeacherPhone text,
+
+  lin text not null unique,
+  zemisOfficerName text,
+  zemisOfficerDate date,
+  zemisOfficerPhone text,
+
+  timestamp timestamptz default now()
+);
+
+create index idx_admissions_emis
+on public.admissions(emis);
+
+create index idx_admissions_schoolname
+on public.admissions(schoolName);
+
+create index idx_admissions_lin
+on public.admissions(lin);
+
+-- =====================================================
+-- ADMISSION WINDOW
+-- =====================================================
+
+create table public.admission_window (
+  id bigint generated always as identity primary key,
+
+  openTimestamp timestamptz,
+  closeTimestamp timestamptz,
+  created_at timestamptz default now()
+);
+
+create index idx_admission_window_open
+on public.admission_window(openTimestamp);
+
+create index idx_admission_window_close
+on public.admission_window(closeTimestamp);
+
+-- =====================================================
+-- ADMISSION EXPORTS
+-- =====================================================
+
+create table public.admission_exports (
+  id bigint generated always as identity primary key,
+
+  schoolEmis text not null,
+  schoolName text,
+  filename text,
+  fileBase64 text,
+  totalLearners integer default 0,
+
+  timestamp timestamptz default now()
+);
+
+create index idx_admission_exports_school
+on public.admission_exports(schoolEmis);
+
+create index idx_admission_exports_schoolname
+on public.admission_exports(schoolName);
+
+-- =====================================================
 -- OPTIONAL FOREIGN KEYS
 -- Safe for current frontend structure
 -- =====================================================
@@ -230,6 +320,12 @@ foreign key (emis)
 references public.schools(emis)
 on delete cascade;
 
+alter table public.admissions
+add constraint fk_admissions_school
+foreign key (emis)
+references public.schools(emis)
+on delete cascade;
+
 -- =====================================================
 -- ENABLE ROW LEVEL SECURITY
 -- =====================================================
@@ -240,6 +336,9 @@ alter table public.enrollment enable row level security;
 alter table public.pslce_results enable row level security;
 alter table public.school_particulars enable row level security;
 alter table public.upload_history enable row level security;
+alter table public.admissions enable row level security;
+alter table public.admission_window enable row level security;
+alter table public.admission_exports enable row level security;
 
 -- =====================================================
 -- TEMP DEVELOPMENT POLICIES
@@ -278,6 +377,24 @@ with check (true);
 
 create policy "Allow all access upload_history"
 on public.upload_history
+for all
+using (true)
+with check (true);
+
+create policy "Allow all access admissions"
+on public.admissions
+for all
+using (true)
+with check (true);
+
+create policy "Allow all access admission_window"
+on public.admission_window
+for all
+using (true)
+with check (true);
+
+create policy "Allow all access admission_exports"
+on public.admission_exports
 for all
 using (true)
 with check (true);

@@ -101,7 +101,10 @@ const DataStore = {
             'mzimba_enrollment',
             'mzimba_pslce',
             'mzimba_particulars',
-            'mzimba_uploads'
+            'mzimba_uploads',
+            'mzimba_admissions',
+            'mzimba_admission_window',
+            'mzimba_admission_exports'
         ];
 
         keys.forEach(k => {
@@ -145,6 +148,24 @@ const DataStore = {
         } catch {
             this.uploadHistory = [];
         }
+
+        try {
+            this.admissions = JSON.parse(localStorage.getItem('mzimba_admissions')) || [];
+        } catch {
+            this.admissions = [];
+        }
+
+        try {
+            this.admissionWindow = JSON.parse(localStorage.getItem('mzimba_admission_window')) || [];
+        } catch {
+            this.admissionWindow = [];
+        }
+
+        try {
+            this.admissionExports = JSON.parse(localStorage.getItem('mzimba_admission_exports')) || [];
+        } catch {
+            this.admissionExports = [];
+        }
         this.connectionStatus = 'Local storage fallback';
     },
 
@@ -158,7 +179,10 @@ const DataStore = {
             enrollment: 'mzimba_enrollment',
             pslce: 'mzimba_pslce',
             particulars: 'mzimba_particulars',
-            history: 'mzimba_uploads'
+            history: 'mzimba_uploads',
+            admission: 'mzimba_admissions',
+            admission_window: 'mzimba_admission_window',
+            admission_export: 'mzimba_admission_exports'
         };
 
         const arrayMap = {
@@ -167,7 +191,10 @@ const DataStore = {
             enrollment: this.enrollment,
             pslce: this.pslceResults,
             particulars: this.schoolParticulars,
-            history: this.uploadHistory
+            history: this.uploadHistory,
+            admission: this.admissions,
+            admission_window: this.admissionWindow,
+            admission_export: this.admissionExports
         };
 
         const storageKey = keyMap[type];
@@ -188,7 +215,10 @@ const DataStore = {
             enrollment: { table: 'enrollment', array: 'enrollment' },
             pslce: { table: 'pslce_results', array: 'pslceResults' },
             particulars: { table: 'school_particulars', array: 'schoolParticulars' },
-            history: { table: 'upload_history', array: 'uploadHistory' }
+            history: { table: 'upload_history', array: 'uploadHistory' },
+            admission: { table: 'admissions', array: 'admissions' },
+            admission_window: { table: 'admission_window', array: 'admissionWindow' },
+            admission_export: { table: 'admission_exports', array: 'admissionExports' }
         };
         return config[type] || null;
     },
@@ -249,18 +279,31 @@ const DataStore = {
         }
     },
 
+    async _safeSupabaseSelect(table) {
+        if (!this.supabase) return { data: [], error: null };
+        const result = await this.supabase.from(table).select('*');
+        if (result.error) {
+            console.warn(`Supabase select failed for ${table}:`, result.error.message);
+            return { data: [], error: null };
+        }
+        return result;
+    },
+
     // =========================
     // SUPABASE LOADING
     // =========================
     async loadAllFromSupabase() {
         try {
-            const [zones, enrollment, pslce, particulars, uploads] =
+            const [zones, enrollment, pslce, particulars, uploads, admissions, admissionWindow, admissionExports] =
                 await Promise.all([
-                    this.supabase.from('zones').select('*'),
-                    this.supabase.from('enrollment').select('*'),
-                    this.supabase.from('pslce_results').select('*'),
-                    this.supabase.from('school_particulars').select('*'),
-                    this.supabase.from('upload_history').select('*')
+                    this._safeSupabaseSelect('zones'),
+                    this._safeSupabaseSelect('enrollment'),
+                    this._safeSupabaseSelect('pslce_results'),
+                    this._safeSupabaseSelect('school_particulars'),
+                    this._safeSupabaseSelect('upload_history'),
+                    this._safeSupabaseSelect('admissions'),
+                    this._safeSupabaseSelect('admission_window'),
+                    this._safeSupabaseSelect('admission_exports')
                 ]);
 
             const schoolCoreFields = [
@@ -285,7 +328,7 @@ const DataStore = {
                 schools = await this.supabase.from('schools').select(selectFields);
             }
 
-            const errors = [zones, schools, enrollment, pslce, particulars, uploads]
+            const errors = [schools]
                 .map(r => r.error)
                 .filter(Boolean);
             if (errors.length > 0) {
@@ -299,6 +342,9 @@ const DataStore = {
             this.pslceResults = pslce.data || [];
             this.schoolParticulars = particulars.data || [];
             this.uploadHistory = uploads.data || [];
+            this.admissions = admissions.data || [];
+            this.admissionWindow = admissionWindow.data || [];
+            this.admissionExports = admissionExports.data || [];
             this.connectionStatus = 'Supabase connected';
             this._syncLocal('zone');
             this._syncLocal('school');
@@ -306,6 +352,9 @@ const DataStore = {
             this._syncLocal('pslce');
             this._syncLocal('particulars');
             this._syncLocal('history');
+            this._syncLocal('admission');
+            this._syncLocal('admission_window');
+            this._syncLocal('admission_export');
         } catch (err) {
             console.error('Supabase load failed:', err);
             this.useSupabase = false;
@@ -330,6 +379,24 @@ const DataStore = {
 
     getSchoolParticulars() {
         return [...this.schoolParticulars];
+    },
+
+    getAdmissions() {
+        return [...this.admissions];
+    },
+
+    getAdmissionsBySchool(emis) {
+        if (!emis) return [];
+        return this.admissions.filter(item => this._matchEMIS(item.emis, emis));
+    },
+
+    getLatestAdmissionWindow() {
+        if (!Array.isArray(this.admissionWindow) || this.admissionWindow.length === 0) return null;
+        return [...this.admissionWindow].sort((a, b) => new Date(b.created_at || b.timestamp || b.openTimestamp) - new Date(a.created_at || a.timestamp || a.openTimestamp))[0];
+    },
+
+    getAdmissionExports() {
+        return [...this.admissionExports];
     },
 
     // =========================
@@ -507,6 +574,114 @@ const DataStore = {
         this.enrollment.unshift(record);
         this._syncLocal('enrollment');
         await this.addToUploadHistory('Enrollment', data.emis);
+        return record;
+    },
+
+    async addAdmission(data) {
+        if (!data || !data.emis || !data.lin || !data.childName || !data.yearAdmission) {
+            throw new Error('Required admission fields are missing');
+        }
+
+        const record = {
+            emis: data.emis,
+            schoolName: data.schoolName,
+            zone: data.zone,
+            districtNumber: data.districtNumber,
+            yearAdmission: parseInt(data.yearAdmission, 10) || null,
+            dateOfAdmission: data.dateOfAdmission,
+            childName: data.childName,
+            sex: data.sex,
+            dateOfBirth: data.dateOfBirth,
+            ageYears: data.ageYears,
+            specialNeeds: data.specialNeeds || null,
+            originDistrict: data.originDistrict,
+            religiousDenomination: data.religiousDenomination,
+            orphanStatus: data.orphanStatus,
+            ecdAttendance: data.ecdAttendance,
+            cinNumber: data.cinNumber || null,
+            parentGuardianName: data.parentGuardianName,
+            parentGuardianPhone: data.parentGuardianPhone,
+            headTeacherName: data.headTeacherName,
+            headTeacherPhone: data.headTeacherPhone,
+            lin: data.lin,
+            zemisOfficerName: data.zemisOfficerName,
+            zemisOfficerDate: data.zemisOfficerDate,
+            zemisOfficerPhone: data.zemisOfficerPhone,
+            timestamp: data.timestamp || new Date().toISOString()
+        };
+
+        if (this.useSupabase) {
+            const result = await this._safeSupabaseInsert('admissions', [record]);
+            if (result.error) {
+                throw new Error(result.error.message);
+            }
+            const saved = { id: result.data?.[0]?.id || Date.now(), ...record };
+            this.admissions.unshift(saved);
+            this._syncLocal('admission');
+            return saved;
+        }
+
+        record.id = Date.now();
+        this.admissions.unshift(record);
+        this._syncLocal('admission');
+        return record;
+    },
+
+    async addAdmissionWindow(data) {
+        if (!data || !data.openTimestamp || !data.closeTimestamp) {
+            throw new Error('Admission window needs open and close timestamps');
+        }
+        const record = {
+            openTimestamp: data.openTimestamp,
+            closeTimestamp: data.closeTimestamp,
+            created_at: new Date().toISOString()
+        };
+
+        if (this.useSupabase) {
+            const result = await this._safeSupabaseInsert('admission_window', [record]);
+            if (result.error) {
+                throw new Error(result.error.message);
+            }
+            const saved = { id: result.data?.[0]?.id || Date.now(), ...record };
+            this.admissionWindow.unshift(saved);
+            this._syncLocal('admission_window');
+            return saved;
+        }
+
+        record.id = Date.now();
+        this.admissionWindow.unshift(record);
+        this._syncLocal('admission_window');
+        return record;
+    },
+
+    async addAdmissionExport(data) {
+        if (!data || !data.schoolEmis || !data.filename || !data.fileBase64) {
+            throw new Error('Admission export requires school EMIS, filename, and file data');
+        }
+
+        const record = {
+            schoolEmis: data.schoolEmis,
+            schoolName: data.schoolName,
+            filename: data.filename,
+            fileBase64: data.fileBase64,
+            totalLearners: parseInt(data.totalLearners, 10) || 0,
+            timestamp: new Date().toISOString()
+        };
+
+        if (this.useSupabase) {
+            const result = await this._safeSupabaseInsert('admission_exports', [record]);
+            if (result.error) {
+                throw new Error(result.error.message);
+            }
+            const saved = { id: result.data?.[0]?.id || Date.now(), ...record };
+            this.admissionExports.unshift(saved);
+            this._syncLocal('admission_export');
+            return saved;
+        }
+
+        record.id = Date.now();
+        this.admissionExports.unshift(record);
+        this._syncLocal('admission_export');
         return record;
     },
 

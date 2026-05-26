@@ -2,6 +2,12 @@ const AppState = {
     currentScreen: 'splash-screen',
     selectedZone: null,
     selectedSchool: null,
+    selectedAdmissionZone: null,
+    selectedAdmissionSchool: null,
+    admissionDistrictNumber: null,
+    admissionWindow: null,
+    admissionFormStep: 1,
+    admissionFormData: {},
     isAdminLoggedIn: false,
     isSchoolLoggedIn: false,
     districtPassword: Config.districtPassword,
@@ -17,11 +23,18 @@ const Screens = {
         this.screens = {
             'splash-screen': document.getElementById('splash-screen'),
             'district-password-screen': document.getElementById('district-password-screen'),
+            'district-options-screen': document.getElementById('district-options-screen'),
             'zone-search-screen': document.getElementById('zone-search-screen'),
             'emis-search-screen': document.getElementById('emis-search-screen'),
             'school-password-screen': document.getElementById('school-password-screen'),
             'school-dashboard-screen': document.getElementById('school-dashboard-screen'),
             'category-data-screen': document.getElementById('category-data-screen'),
+            'admission-zone-screen': document.getElementById('admission-zone-screen'),
+            'admission-school-screen': document.getElementById('admission-school-screen'),
+            'admission-school-password-screen': document.getElementById('admission-school-password-screen'),
+            'admission-district-number-screen': document.getElementById('admission-district-number-screen'),
+            'admission-main-screen': document.getElementById('admission-main-screen'),
+            'admission-form-screen': document.getElementById('admission-form-screen'),
             'admin-login-screen': document.getElementById('admin-login-screen'),
             'admin-dashboard-screen': document.getElementById('admin-dashboard-screen'),
             'admin-recovery-screen': document.getElementById('admin-recovery-screen')
@@ -65,7 +78,7 @@ const DistrictPasswordScreen = {
         loginBtn.addEventListener('click', () => {
             if (passwordInput.value === AppState.districtPassword) {
                 errorDisplay.textContent = '';
-                Screens.show('zone-search-screen');
+                Screens.show('district-options-screen');
             } else {
                 errorDisplay.textContent = 'Please enter correct password or visit the division to access data';
                 passwordInput.value = '';
@@ -76,6 +89,798 @@ const DistrictPasswordScreen = {
             if (e.key === 'Enter') {
                 loginBtn.click();
             }
+        });
+    }
+};
+
+const AdmissionUtils = {
+    bannerTimer: null,
+    async refreshAdmissionWindow() {
+        if (typeof DataStore.getLatestAdmissionWindow === 'function') {
+            AppState.admissionWindow = DataStore.getLatestAdmissionWindow();
+        }
+        this.updateBanner();
+    },
+
+    isOpen() {
+        if (!AppState.admissionWindow) return false;
+        const now = new Date();
+        const openTs = AppState.admissionWindow.openTimestamp ? new Date(AppState.admissionWindow.openTimestamp) : null;
+        const closeTs = AppState.admissionWindow.closeTimestamp ? new Date(AppState.admissionWindow.closeTimestamp) : null;
+        if (!openTs || !closeTs) return false;
+        return now >= openTs && now <= closeTs;
+    },
+
+    updateBanner() {
+        const banner = document.getElementById('admission-banner');
+        if (!banner) return;
+        if (this.isOpen()) {
+            banner.style.display = 'block';
+            this.refreshCountdown();
+            if (!this.bannerTimer) {
+                this.bannerTimer = setInterval(() => this.refreshCountdown(), 1000);
+            }
+        } else {
+            banner.style.display = 'none';
+            if (this.bannerTimer) {
+                clearInterval(this.bannerTimer);
+                this.bannerTimer = null;
+            }
+        }
+    },
+
+    refreshCountdown() {
+        const closeTs = AppState.admissionWindow && AppState.admissionWindow.closeTimestamp ? new Date(AppState.admissionWindow.closeTimestamp) : null;
+        const daysEl = document.getElementById('countdown-days');
+        const hoursEl = document.getElementById('countdown-hours');
+        const minutesEl = document.getElementById('countdown-minutes');
+        const secondsEl = document.getElementById('countdown-seconds');
+        if (!closeTs || !daysEl || !hoursEl || !minutesEl || !secondsEl) return;
+        const now = new Date();
+        const diff = closeTs - now;
+        if (diff <= 0) {
+            daysEl.textContent = '00d';
+            hoursEl.textContent = '00h';
+            minutesEl.textContent = '00m';
+            secondsEl.textContent = '00s';
+            this.updateBanner();
+            return;
+        }
+        const days = String(Math.floor(diff / 86400000)).padStart(2, '0');
+        const hours = String(Math.floor((diff % 86400000) / 3600000)).padStart(2, '0');
+        const minutes = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
+        const seconds = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
+        daysEl.textContent = `${days}d`;
+        hoursEl.textContent = `${hours}h`;
+        minutesEl.textContent = `${minutes}m`;
+        secondsEl.textContent = `${seconds}s`;
+    }
+};
+
+const AdmissionOptionScreen = {
+    init() {
+        const admissionCard = document.getElementById('admission-option-card');
+        const districtCard = document.getElementById('district-data-option-card');
+        const message = document.getElementById('admission-option-message');
+
+        admissionCard.addEventListener('click', async () => {
+            message.textContent = '';
+            await AdmissionUtils.refreshAdmissionWindow();
+            if (AdmissionUtils.isOpen()) {
+                AppState.selectedAdmissionZone = null;
+                AppState.selectedAdmissionSchool = null;
+                AppState.admissionDistrictNumber = null;
+                Screens.show('admission-zone-screen');
+                AdmissionZoneScreen.init();
+            } else {
+                message.textContent = 'Admission Window Is Currently Closed';
+            }
+        });
+
+        districtCard.addEventListener('click', () => {
+            Screens.show('zone-search-screen');
+        });
+    }
+};
+
+const AdmissionZoneScreen = {
+    init() {
+        const searchInput = document.getElementById('admission-zone-search');
+        const resultsContainer = document.getElementById('admission-zone-results');
+
+        const renderZones = (zones) => {
+            resultsContainer.innerHTML = zones.length === 0
+                ? '<p class="no-data">No zones found</p>'
+                : zones.map(zone => `
+                    <div class="result-item" data-zone="${zone}">
+                        <h3>${zone}</h3>
+                    </div>
+                `).join('');
+
+            resultsContainer.querySelectorAll('.result-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    AppState.selectedAdmissionZone = item.dataset.zone;
+                    Screens.show('admission-school-screen');
+                    AdmissionSchoolScreen.init();
+                });
+            });
+        };
+
+        const loadZones = () => {
+            const zones = DataStore.getZones().map(z => z.name).filter(Boolean);
+            renderZones(zones);
+        };
+
+        searchInput.value = '';
+        searchInput.addEventListener('input', () => {
+            const query = searchInput.value.trim().toLowerCase();
+            const zones = DataStore.getZones()
+                .map(z => z.name)
+                .filter(Boolean)
+                .filter(zone => zone.toLowerCase().includes(query));
+            renderZones(zones);
+        });
+
+        loadZones();
+    }
+};
+
+const AdmissionSchoolScreen = {
+    init() {
+        const searchInput = document.getElementById('admission-school-search');
+        const resultsContainer = document.getElementById('admission-school-results');
+        const zoneDisplay = document.getElementById('admission-selected-zone-display');
+
+        zoneDisplay.textContent = AppState.selectedAdmissionZone ? `Selected Zone: ${AppState.selectedAdmissionZone}` : '';
+        searchInput.value = '';
+
+        const renderSchools = (schools) => {
+            resultsContainer.innerHTML = schools.length === 0
+                ? '<p class="no-data">No schools found in this zone</p>'
+                : schools.map(school => `
+                    <div class="result-item" data-emis="${school.emis}" data-name="${school.name}" data-password="${school.password}">
+                        <h3>${school.name}</h3>
+                        <p>EMIS: ${school.emis}</p>
+                    </div>
+                `).join('');
+
+            resultsContainer.querySelectorAll('.result-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    AppState.selectedAdmissionSchool = {
+                        emis: item.dataset.emis,
+                        name: item.dataset.name,
+                        password: item.dataset.password
+                    };
+                    Screens.show('admission-school-password-screen');
+                    AdmissionSchoolPasswordScreen.init();
+                });
+            });
+        };
+
+        const loadSchools = () => {
+            const schools = AppState.selectedAdmissionZone ? DataStore.getSchoolsByZone(AppState.selectedAdmissionZone) : [];
+            renderSchools(schools);
+        };
+
+        searchInput.addEventListener('input', () => {
+            const query = searchInput.value.trim().toLowerCase();
+            const schools = AppState.selectedAdmissionZone ? DataStore.getSchoolsByZone(AppState.selectedAdmissionZone) : [];
+            const filtered = schools.filter(school => {
+                return school.name.toLowerCase().includes(query) || String(school.emis).toLowerCase().includes(query);
+            });
+            renderSchools(filtered);
+        });
+
+        loadSchools();
+    }
+};
+
+const AdmissionSchoolPasswordScreen = {
+    init() {
+        const schoolDisplay = document.getElementById('admission-school-name-display');
+        const passwordInput = document.getElementById('admission-school-password');
+        const toggleBtn = document.getElementById('toggle-admission-school-password');
+        const loginBtn = document.getElementById('admission-school-login-btn');
+        const errorDisplay = document.getElementById('admission-school-error');
+
+        schoolDisplay.textContent = AppState.selectedAdmissionSchool ? AppState.selectedAdmissionSchool.name : '';
+        passwordInput.value = '';
+        errorDisplay.textContent = '';
+
+        toggleBtn.addEventListener('click', () => {
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleBtn.textContent = '🙈';
+            } else {
+                passwordInput.type = 'password';
+                toggleBtn.textContent = '👁️';
+            }
+        });
+
+        loginBtn.addEventListener('click', () => {
+            if (passwordInput.value === AppState.selectedAdmissionSchool.password) {
+                errorDisplay.textContent = '';
+                AppState.admissionDistrictNumber = null;
+                Screens.show('admission-district-number-screen');
+                AdmissionDistrictNumberScreen.init();
+            } else {
+                errorDisplay.textContent = 'Incorrect password. Please try again.';
+                passwordInput.value = '';
+            }
+        });
+
+        passwordInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                loginBtn.click();
+            }
+        });
+    }
+};
+
+const AdmissionDistrictNumberScreen = {
+    init() {
+        const input = document.getElementById('admission-district-number');
+        const button = document.getElementById('admission-district-number-btn');
+        const errorDisplay = document.getElementById('admission-district-number-error');
+
+        input.value = '';
+        errorDisplay.textContent = '';
+
+        button.addEventListener('click', () => {
+            const value = input.value.trim();
+            if (!/^0\d+$/.test(value)) {
+                errorDisplay.textContent = 'District number must start with 0 and contain digits only';
+                return;
+            }
+            AppState.admissionDistrictNumber = value;
+            errorDisplay.textContent = '';
+            Screens.show('admission-main-screen');
+            AdmissionMainScreen.init();
+        });
+
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                button.click();
+            }
+        });
+    }
+};
+
+const AdmissionMainScreen = {
+    init() {
+        const schoolDisplay = document.getElementById('admission-dashboard-school-display');
+        const newAdmissionBtn = document.getElementById('new-admission-btn');
+        const showRegisteredBtn = document.getElementById('show-registered-btn');
+        const submitBtn = document.getElementById('admission-submit-btn');
+
+        schoolDisplay.textContent = AppState.selectedAdmissionSchool ? `${AppState.selectedAdmissionSchool.name} (${AppState.selectedAdmissionSchool.emis})` : '';
+        document.getElementById('admission-registered-learners').innerHTML = '';
+
+        newAdmissionBtn.addEventListener('click', () => {
+            AppState.admissionFormStep = 1;
+            AppState.admissionFormData = {
+                district: AppState.selectedAdmissionZone,
+                school: AppState.selectedAdmissionSchool.name,
+                emis: AppState.selectedAdmissionSchool.emis
+            };
+            AdmissionFormScreen.init();
+            Screens.show('admission-form-screen');
+        });
+
+        showRegisteredBtn.addEventListener('click', () => {
+            this.renderRegisteredLearners();
+        });
+
+        submitBtn.addEventListener('click', async () => {
+            const learners = DataStore.getAdmissionsBySchool(AppState.selectedAdmissionSchool.emis);
+            if (learners.length === 0) {
+                alert('No learners registered yet for this school. Please add learner admissions first.');
+                return;
+            }
+            try {
+                await AdmissionFormScreen.createExport();
+                alert('Excel sheet generated and saved for admin access.');
+            } catch (err) {
+                console.error(err);
+                alert('Failed to generate admission Excel sheet.');
+            }
+        });
+
+        this.renderRegisteredLearners();
+    },
+
+    renderRegisteredLearners() {
+        const container = document.getElementById('admission-registered-learners');
+        const learners = DataStore.getAdmissionsBySchool(AppState.selectedAdmissionSchool.emis);
+        if (!learners.length) {
+            container.innerHTML = '<p class="no-data">No registered learners for this school.</p>';
+            return;
+        }
+        container.innerHTML = learners.map(learner => `
+            <div class="admission-learner-card">
+                <div class="admission-learner-details">
+                    <h4>${learner.childName}</h4>
+                    <p>LIN: ${learner.lin}</p>
+                    <p>Admission Year: ${learner.yearAdmission}</p>
+                </div>
+                <button class="btn-delete" data-id="${learner.id}">Delete</button>
+            </div>
+        `).join('');
+
+        container.querySelectorAll('.btn-delete').forEach(button => {
+            button.addEventListener('click', async () => {
+                const id = parseInt(button.dataset.id, 10);
+                if (confirm('Remove this registered learner?')) {
+                    await DataStore.deleteRecord('admission', id);
+                    this.renderRegisteredLearners();
+                }
+            });
+        });
+    }
+};
+
+const AdmissionFormScreen = {
+    init() {
+        const backBtn = document.getElementById('admission-form-back-btn');
+        const nextBtn = document.getElementById('admission-form-next-btn');
+        document.getElementById('admission-form-error').textContent = '';
+        if (!AppState.admissionFormStep) {
+            AppState.admissionFormStep = 1;
+            AppState.admissionFormData = {
+                district: AppState.selectedAdmissionZone,
+                school: AppState.selectedAdmissionSchool.name,
+                emis: AppState.selectedAdmissionSchool.emis
+            };
+        }
+        backBtn.disabled = AppState.admissionFormStep === 1;
+        backBtn.addEventListener('click', () => this.previousStep());
+        nextBtn.addEventListener('click', () => this.nextStep());
+        this.renderStep();
+    },
+
+    renderStep() {
+        const container = document.getElementById('admission-form-step');
+        const step = AppState.admissionFormStep;
+        const data = AppState.admissionFormData || {};
+        let html = '';
+
+        switch (step) {
+            case 1:
+                html = `
+                    <h3>Step 1: School Details</h3>
+                    <div class="admission-form-grid">
+                        <div class="admission-form-field">
+                            <label>District</label>
+                            <input type="text" id="form-district" value="${data.district || ''}" placeholder="District">
+                        </div>
+                        <div class="admission-form-field">
+                            <label>School</label>
+                            <input type="text" id="form-school" value="${data.school || ''}" placeholder="School">
+                        </div>
+                        <div class="admission-form-field">
+                            <label>School EMIS Code</label>
+                            <input type="text" id="form-emis" value="${data.emis || ''}" placeholder="School EMIS Code">
+                        </div>
+                    </div>
+                `;
+                break;
+            case 2:
+                html = `
+                    <h3>Step 2: Admission Date</h3>
+                    <div class="admission-form-grid">
+                        <div class="admission-form-field">
+                            <label>School Year of Admission</label>
+                            <input type="number" id="form-yearAdmission" value="${data.yearAdmission || ''}" placeholder="2026">
+                        </div>
+                        <div class="admission-form-field">
+                            <label>Date of Admission</label>
+                            <input type="text" id="form-dateOfAdmission" value="${data.dateOfAdmission || ''}" placeholder="DD/MM/YYYY">
+                        </div>
+                    </div>
+                `;
+                break;
+            case 3:
+                html = `
+                    <h3>Step 3: Child Details</h3>
+                    <div class="admission-form-grid">
+                        <div class="admission-form-field">
+                            <label>Child Name (Surname First)</label>
+                            <input type="text" id="form-childName" value="${data.childName || ''}" placeholder="Surname First">
+                        </div>
+                        <div class="admission-form-field">
+                            <label>Sex</label>
+                            <select id="form-sex">
+                                <option value="">Select sex</option>
+                                <option value="Male" ${data.sex === 'Male' ? 'selected' : ''}>Male</option>
+                                <option value="Female" ${data.sex === 'Female' ? 'selected' : ''}>Female</option>
+                            </select>
+                        </div>
+                    </div>
+                `;
+                break;
+            case 4:
+                html = `
+                    <h3>Step 4: Birth Details</h3>
+                    <div class="admission-form-grid">
+                        <div class="admission-form-field">
+                            <label>Date of Birth</label>
+                            <input type="text" id="form-dateOfBirth" value="${data.dateOfBirth || ''}" placeholder="DD/MM/YYYY">
+                        </div>
+                        <div class="admission-form-field">
+                            <label>Age (yrs)</label>
+                            <input type="number" id="form-ageYears" value="${data.ageYears || ''}" placeholder="Age">
+                        </div>
+                        <div class="admission-form-field">
+                            <label>Special Needs (If any)</label>
+                            <input type="text" id="form-specialNeeds" value="${data.specialNeeds || ''}" placeholder="Special needs details">
+                        </div>
+                    </div>
+                `;
+                break;
+            case 5:
+                html = `
+                    <h3>Step 5: Additional Background</h3>
+                    <div class="admission-form-grid">
+                        <div class="admission-form-field">
+                            <label>District of Origin</label>
+                            <input type="text" id="form-originDistrict" value="${data.originDistrict || ''}" placeholder="District of Origin">
+                        </div>
+                        <div class="admission-form-field">
+                            <label>Religious Denomination</label>
+                            <input type="text" id="form-religiousDenomination" value="${data.religiousDenomination || ''}" placeholder="Religious Denomination">
+                        </div>
+                    </div>
+                `;
+                break;
+            case 6:
+                html = `
+                    <h3>Step 6: Orphan Status</h3>
+                    <div class="admission-form-grid">
+                        <label class="admission-form-field">
+                            <input type="checkbox" id="form-orphanDouble" ${data.orphanStatus === 'Double' ? 'checked' : ''}> Double Orphan
+                        </label>
+                        <label class="admission-form-field">
+                            <input type="checkbox" id="form-orphanSingle" ${data.orphanStatus === 'Single' ? 'checked' : ''}> Single Orphan
+                        </label>
+                    </div>
+                `;
+                break;
+            case 7:
+                html = `
+                    <h3>Step 7: ECD Education</h3>
+                    <div class="admission-form-grid">
+                        <div class="admission-form-field">
+                            <label>ECD Education Attendance</label>
+                            <select id="form-ecdAttendance">
+                                <option value="">Select</option>
+                                <option value="Yes" ${data.ecdAttendance === 'Yes' ? 'selected' : ''}>Yes</option>
+                                <option value="No" ${data.ecdAttendance === 'No' ? 'selected' : ''}>No</option>
+                            </select>
+                        </div>
+                        ${data.ecdAttendance === 'Yes' ? `
+                            <div class="admission-form-field">
+                                <label>CIN</label>
+                                <input type="text" id="form-cinNumber" value="${data.cinNumber || ''}" placeholder="CIN">
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+                break;
+            case 8:
+                html = `
+                    <h3>Step 8: Parent / Guardian</h3>
+                    <div class="admission-form-grid">
+                        <div class="admission-form-field">
+                            <label>Parent/Guardian Name</label>
+                            <input type="text" id="form-parentGuardianName" value="${data.parentGuardianName || ''}" placeholder="Parent or guardian">
+                        </div>
+                        <div class="admission-form-field">
+                            <label>Phone Number</label>
+                            <input type="text" id="form-parentGuardianPhone" value="${data.parentGuardianPhone || ''}" placeholder="Phone number">
+                        </div>
+                    </div>
+                `;
+                break;
+            case 9:
+                html = `
+                    <h3>Step 9: Head Teacher</h3>
+                    <div class="admission-form-grid">
+                        <div class="admission-form-field">
+                            <label>Head Teacher Name</label>
+                            <input type="text" id="form-headTeacherName" value="${data.headTeacherName || ''}" placeholder="Head teacher name">
+                        </div>
+                        <div class="admission-form-field">
+                            <label>Phone Number</label>
+                            <input type="text" id="form-headTeacherPhone" value="${data.headTeacherPhone || ''}" placeholder="Phone number">
+                        </div>
+                    </div>
+                `;
+                break;
+            case 10:
+                const generatedLin = data.lin || this.generateLin();
+                AppState.admissionFormData.lin = generatedLin;
+                html = `
+                    <h3>Step 10: LIN Generation</h3>
+                    <div class="admission-loading active" id="admission-lin-loading">Generating LIN. Please remain patient.</div>
+                    <div class="admission-form-grid" style="margin-top:20px;">
+                        <div class="admission-form-field">
+                            <label>Generated LIN</label>
+                            <input type="text" id="form-lin" value="${generatedLin}" readonly>
+                        </div>
+                    </div>
+                `;
+                break;
+            case 11:
+                html = `
+                    <h3>Step 11: zEMIS Officer</h3>
+                    <div class="admission-form-grid">
+                        <div class="admission-form-field">
+                            <label>Name</label>
+                            <input type="text" id="form-zemisOfficerName" value="${data.zemisOfficerName || ''}" placeholder="zEMIS officer name">
+                        </div>
+                        <div class="admission-form-field">
+                            <label>Date</label>
+                            <input type="date" id="form-zemisOfficerDate" value="${data.zemisOfficerDate || ''}">
+                        </div>
+                        <div class="admission-form-field">
+                            <label>Phone</label>
+                            <input type="text" id="form-zemisOfficerPhone" value="${data.zemisOfficerPhone || ''}" placeholder="Phone number">
+                        </div>
+                    </div>
+                `;
+                break;
+            default:
+                html = '<p class="no-data">Invalid step.</p>';
+        }
+
+        container.innerHTML = html;
+        if (step === 10) {
+            setTimeout(() => {
+                const loading = document.getElementById('admission-lin-loading');
+                if (loading) {
+                    loading.textContent = 'LIN generated successfully.';
+                }
+                document.getElementById('admission-form-next-btn').textContent = 'Next';
+            }, 1200);
+        }
+        document.getElementById('admission-form-back-btn').disabled = step === 1;
+    },
+
+    collectValues() {
+        const data = AppState.admissionFormData || {};
+        const values = {};
+
+        const setValue = (key, selector) => {
+            const el = document.getElementById(selector);
+            if (el) {
+                values[key] = el.value.trim();
+            }
+        };
+
+        if (AppState.admissionFormStep === 1) {
+            setValue('district', 'form-district');
+            setValue('school', 'form-school');
+            setValue('emis', 'form-emis');
+        }
+        if (AppState.admissionFormStep === 2) {
+            setValue('yearAdmission', 'form-yearAdmission');
+            setValue('dateOfAdmission', 'form-dateOfAdmission');
+        }
+        if (AppState.admissionFormStep === 3) {
+            setValue('childName', 'form-childName');
+            setValue('sex', 'form-sex');
+        }
+        if (AppState.admissionFormStep === 4) {
+            setValue('dateOfBirth', 'form-dateOfBirth');
+            setValue('ageYears', 'form-ageYears');
+            setValue('specialNeeds', 'form-specialNeeds');
+        }
+        if (AppState.admissionFormStep === 5) {
+            setValue('originDistrict', 'form-originDistrict');
+            setValue('religiousDenomination', 'form-religiousDenomination');
+        }
+        if (AppState.admissionFormStep === 6) {
+            const double = document.getElementById('form-orphanDouble');
+            const single = document.getElementById('form-orphanSingle');
+            values.orphanStatus = double && double.checked ? 'Double' : single && single.checked ? 'Single' : data.orphanStatus || '';
+        }
+        if (AppState.admissionFormStep === 7) {
+            setValue('ecdAttendance', 'form-ecdAttendance');
+            if (values.ecdAttendance === 'Yes') {
+                setValue('cinNumber', 'form-cinNumber');
+            } else {
+                values.cinNumber = '';
+            }
+        }
+        if (AppState.admissionFormStep === 8) {
+            setValue('parentGuardianName', 'form-parentGuardianName');
+            setValue('parentGuardianPhone', 'form-parentGuardianPhone');
+        }
+        if (AppState.admissionFormStep === 9) {
+            setValue('headTeacherName', 'form-headTeacherName');
+            setValue('headTeacherPhone', 'form-headTeacherPhone');
+        }
+        if (AppState.admissionFormStep === 10) {
+            setValue('lin', 'form-lin');
+        }
+        if (AppState.admissionFormStep === 11) {
+            setValue('zemisOfficerName', 'form-zemisOfficerName');
+            setValue('zemisOfficerDate', 'form-zemisOfficerDate');
+            setValue('zemisOfficerPhone', 'form-zemisOfficerPhone');
+        }
+
+        AppState.admissionFormData = { ...data, ...values };
+    },
+
+    validateStep() {
+        const data = AppState.admissionFormData;
+        if (AppState.admissionFormStep === 1) {
+            if (!data.district || !data.school || !data.emis) return 'All fields are required in step 1';
+        }
+        if (AppState.admissionFormStep === 2) {
+            if (!data.yearAdmission || !/^\d{4}$/.test(data.yearAdmission)) return 'Enter a valid admission year';
+            if (!data.dateOfAdmission || !/^\d{2}\/\d{2}\/\d{4}$/.test(data.dateOfAdmission)) return 'Enter admission date in DD/MM/YYYY';
+        }
+        if (AppState.admissionFormStep === 3) {
+            if (!data.childName || !data.sex) return 'Enter child name and sex';
+        }
+        if (AppState.admissionFormStep === 4) {
+            if (!data.dateOfBirth || !/^\d{2}\/\d{2}\/\d{4}$/.test(data.dateOfBirth)) return 'Enter date of birth in DD/MM/YYYY';
+            if (!data.ageYears || parseInt(data.ageYears, 10) <= 0) return 'Enter a valid age';
+        }
+        if (AppState.admissionFormStep === 5) {
+            if (!data.originDistrict || !data.religiousDenomination) return 'Enter district of origin and religious denomination';
+        }
+        if (AppState.admissionFormStep === 6) {
+            if (!data.orphanStatus) return 'Select orphan status';
+        }
+        if (AppState.admissionFormStep === 7) {
+            if (!data.ecdAttendance) return 'Select ECD attendance';
+            if (data.ecdAttendance === 'Yes' && !data.cinNumber) return 'Enter CIN when attendance is yes';
+        }
+        if (AppState.admissionFormStep === 8) {
+            if (!data.parentGuardianName || !data.parentGuardianPhone) return 'Enter parent or guardian details';
+        }
+        if (AppState.admissionFormStep === 9) {
+            if (!data.headTeacherName || !data.headTeacherPhone) return 'Enter head teacher details';
+        }
+        if (AppState.admissionFormStep === 11) {
+            if (!data.zemisOfficerName || !data.zemisOfficerDate || !data.zemisOfficerPhone) return 'Enter zEMIS officer information';
+        }
+        return '';
+    },
+
+    generateLin() {
+        const data = AppState.admissionFormData || {};
+        const year = String(data.yearAdmission || '').padStart(4, '0');
+        const district = String(AppState.admissionDistrictNumber || '').padStart(2, '0');
+        const emis = String(data.emis || AppState.selectedAdmissionSchool.emis || '').padStart(5, '0');
+        const existingCount = DataStore.getAdmissionsBySchool(AppState.selectedAdmissionSchool.emis).length;
+        const sequence = String(existingCount + 1).padStart(3, '0');
+        return `${year}${district}${emis}${sequence}`;
+    },
+
+    async nextStep() {
+        this.collectValues();
+        const errorDisplay = document.getElementById('admission-form-error');
+        errorDisplay.textContent = '';
+
+        if (AppState.admissionFormStep === 10) {
+            AppState.admissionFormData.lin = this.generateLin();
+        }
+
+        const validationError = this.validateStep();
+        if (validationError) {
+            errorDisplay.textContent = validationError;
+            return;
+        }
+
+        if (AppState.admissionFormStep === 10) {
+            AppState.admissionFormData.lin = this.generateLin();
+        }
+
+        if (AppState.admissionFormStep === 11) {
+            try {
+                await this.submitAdmission();
+                return;
+            } catch (err) {
+                errorDisplay.textContent = 'Failed to submit admission. Please try again.';
+                console.error(err);
+                return;
+            }
+        }
+
+        AppState.admissionFormStep += 1;
+        this.renderStep();
+    },
+
+    previousStep() {
+        if (AppState.admissionFormStep > 1) {
+            AppState.admissionFormStep -= 1;
+            this.renderStep();
+        }
+    },
+
+    async submitAdmission() {
+        this.collectValues();
+        const record = {
+            emis: AppState.selectedAdmissionSchool.emis,
+            schoolName: AppState.selectedAdmissionSchool.name,
+            zone: AppState.selectedAdmissionSchool.zone,
+            districtNumber: AppState.admissionDistrictNumber,
+            yearAdmission: AppState.admissionFormData.yearAdmission,
+            dateOfAdmission: AppState.admissionFormData.dateOfAdmission,
+            childName: AppState.admissionFormData.childName,
+            sex: AppState.admissionFormData.sex,
+            dateOfBirth: AppState.admissionFormData.dateOfBirth,
+            ageYears: AppState.admissionFormData.ageYears,
+            specialNeeds: AppState.admissionFormData.specialNeeds,
+            originDistrict: AppState.admissionFormData.originDistrict,
+            religiousDenomination: AppState.admissionFormData.religiousDenomination,
+            orphanStatus: AppState.admissionFormData.orphanStatus,
+            ecdAttendance: AppState.admissionFormData.ecdAttendance,
+            cinNumber: AppState.admissionFormData.cinNumber || null,
+            parentGuardianName: AppState.admissionFormData.parentGuardianName,
+            parentGuardianPhone: AppState.admissionFormData.parentGuardianPhone,
+            headTeacherName: AppState.admissionFormData.headTeacherName,
+            headTeacherPhone: AppState.admissionFormData.headTeacherPhone,
+            lin: AppState.admissionFormData.lin,
+            zemisOfficerName: AppState.admissionFormData.zemisOfficerName,
+            zemisOfficerDate: AppState.admissionFormData.zemisOfficerDate,
+            zemisOfficerPhone: AppState.admissionFormData.zemisOfficerPhone,
+            timestamp: new Date().toISOString()
+        };
+
+        const saved = await DataStore.addAdmission(record);
+        await this.createExport();
+        alert('Learner registered successfully. Admission Excel sheet generated.');
+        Screens.show('admission-main-screen');
+        AdmissionMainScreen.init();
+    },
+
+    async createExport() {
+        const admissions = DataStore.getAdmissionsBySchool(AppState.selectedAdmissionSchool.emis);
+        if (!admissions.length) throw new Error('No admissions available');
+        const rows = admissions.map(item => ({
+            'School Name': item.schoolName,
+            'EMIS': item.emis,
+            'Zone': item.zone,
+            'District Number': item.districtNumber,
+            'Admission Year': item.yearAdmission,
+            'Date of Admission': item.dateOfAdmission,
+            'Child Name': item.childName,
+            'Sex': item.sex,
+            'Date of Birth': item.dateOfBirth,
+            'Age (yrs)': item.ageYears,
+            'Special Needs': item.specialNeeds || '',
+            'District of Origin': item.originDistrict,
+            'Religious Denomination': item.religiousDenomination,
+            'Orphan Status': item.orphanStatus,
+            'ECD Attendance': item.ecdAttendance,
+            'CIN': item.cinNumber || '',
+            'Parent/Guardian Name': item.parentGuardianName,
+            'Parent/Guardian Phone': item.parentGuardianPhone,
+            'Head Teacher Name': item.headTeacherName,
+            'Head Teacher Phone': item.headTeacherPhone,
+            'LIN': item.lin,
+            'zEMIS Officer Name': item.zemisOfficerName,
+            'zEMIS Officer Date': item.zemisOfficerDate,
+            'zEMIS Officer Phone': item.zemisOfficerPhone,
+            'Timestamp': item.timestamp
+        }));
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(rows);
+        XLSX.utils.book_append_sheet(wb, ws, 'Admissions');
+        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
+        const filename = `${AppState.selectedAdmissionSchool.name.replace(/[^a-zA-Z0-9]/g, '_')}_Admissions.xlsx`;
+
+        await DataStore.addAdmissionExport({
+            schoolEmis: AppState.selectedAdmissionSchool.emis,
+            schoolName: AppState.selectedAdmissionSchool.name,
+            filename,
+            fileBase64: wbout,
+            totalLearners: admissions.length
         });
     }
 };
@@ -775,7 +1580,10 @@ const AdminPanel = {
         });
         
         loginBtn.addEventListener('click', () => {
-            if (usernameInput.value === AppState.adminUsername && passwordInput.value === AppState.adminPassword) {
+            const enteredUsername = usernameInput.value.trim();
+            const enteredPassword = passwordInput.value;
+
+            if (enteredUsername === String(AppState.adminUsername).trim() && enteredPassword === String(AppState.adminPassword)) {
                 errorDisplay.textContent = '';
                 AppState.isAdminLoggedIn = true;
                 usernameInput.value = '';
@@ -809,6 +1617,22 @@ const AdminPanel = {
             AppState.isAdminLoggedIn = false;
             Screens.show('district-password-screen');
         });
+
+        const admissionAccessBtn = document.getElementById('admin-admission-btn');
+        if (admissionAccessBtn) {
+            admissionAccessBtn.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                panels.forEach(p => p.classList.remove('active'));
+                const tab = document.querySelector('.admin-tab[data-tab="admission"]');
+                if (tab) {
+                    tab.classList.add('active');
+                }
+                const panel = document.getElementById('admin-admission');
+                if (panel) {
+                    panel.classList.add('active');
+                }
+            });
+        }
         
         tabs.forEach(tab => {
             tab.addEventListener('click', () => {
@@ -825,6 +1649,7 @@ const AdminPanel = {
         this.initPSLCEPanel();
         this.initParticularsPanel();
         this.initHistoryPanel();
+        this.initAdmissionPanel();
     },
     
     loadAdminData() {
@@ -834,6 +1659,8 @@ const AdminPanel = {
         this.loadPSLCE();
         this.loadParticulars();
         this.loadHistory();
+        this.loadAdmissionWindow();
+        this.loadAdmissionExports();
         this.populateZoneSelect();
         this.populateYearSelects();
         this.populateSchoolSelects();
@@ -1570,6 +2397,93 @@ const AdminPanel = {
             </div>
         `).join('');
     },
+
+    initAdmissionPanel() {
+        const windowBtn = document.getElementById('set-admission-window-btn');
+        windowBtn.addEventListener('click', async () => {
+            const openDate = document.getElementById('admission-open-date').value;
+            const openTime = document.getElementById('admission-open-time').value;
+            const closeDate = document.getElementById('admission-close-date').value;
+            const closeTime = document.getElementById('admission-close-time').value;
+            if (!openDate || !openTime || !closeDate || !closeTime) {
+                alert('Please enter both opening and closing date/time');
+                return;
+            }
+            const openTimestamp = new Date(`${openDate}T${openTime}`);
+            const closeTimestamp = new Date(`${closeDate}T${closeTime}`);
+            if (openTimestamp >= closeTimestamp) {
+                alert('Closing date/time must be after opening date/time');
+                return;
+            }
+            await DataStore.addAdmissionWindow({ openTimestamp: openTimestamp.toISOString(), closeTimestamp: closeTimestamp.toISOString() });
+            this.loadAdmissionWindow();
+            AdmissionUtils.refreshAdmissionWindow();
+            alert('Admission window updated successfully');
+        });
+    },
+
+    loadAdmissionWindow() {
+        const latest = DataStore.getLatestAdmissionWindow();
+        if (!latest) return;
+        AppState.admissionWindow = latest;
+        const openAt = new Date(latest.openTimestamp);
+        const closeAt = new Date(latest.closeTimestamp);
+        const windowData = document.getElementById('admin-admission');
+        if (windowData) {
+            const openDateInput = document.getElementById('admission-open-date');
+            const openTimeInput = document.getElementById('admission-open-time');
+            const closeDateInput = document.getElementById('admission-close-date');
+            const closeTimeInput = document.getElementById('admission-close-time');
+            if (openDateInput) openDateInput.value = openAt.toISOString().slice(0, 10);
+            if (openTimeInput) openTimeInput.value = openAt.toTimeString().slice(0, 5);
+            if (closeDateInput) closeDateInput.value = closeAt.toISOString().slice(0, 10);
+            if (closeTimeInput) closeTimeInput.value = closeAt.toTimeString().slice(0, 5);
+        }
+        AdmissionUtils.refreshAdmissionWindow();
+    },
+
+    loadAdmissionExports() {
+        const list = document.getElementById('admission-exports-list');
+        const exportsData = DataStore.getAdmissionExports();
+        if (!list) return;
+        if (!exportsData.length) {
+            list.innerHTML = '<p class="no-data">No admission exports available.</p>';
+            return;
+        }
+        list.innerHTML = exportsData.map(item => `
+            <div class="list-item">
+                <div class="list-item-info">
+                    <h4>${item.schoolName}</h4>
+                    <p>Uploaded: ${new Date(item.timestamp).toLocaleString()}</p>
+                    <p>Total Learners: ${item.totalLearners}</p>
+                </div>
+                <div class="list-item-actions">
+                    <button class="btn-primary" data-fileid="${item.id}">Download</button>
+                </div>
+            </div>
+        `).join('');
+        list.querySelectorAll('.btn-primary').forEach(button => {
+            button.addEventListener('click', () => {
+                const id = parseInt(button.dataset.fileid, 10);
+                const exportItem = exportsData.find(item => item.id === id);
+                if (!exportItem) return;
+                const link = document.createElement('a');
+                const binary = atob(exportItem.fileBase64);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i += 1) {
+                    bytes[i] = binary.charCodeAt(i);
+                }
+                const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                const url = URL.createObjectURL(blob);
+                link.href = url;
+                link.download = exportItem.filename;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                URL.revokeObjectURL(url);
+            });
+        });
+    },
     
     showSuccess(message) {
         const popup = document.getElementById('success-popup');
@@ -1790,8 +2704,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     await DataStore.init();
     SupabaseStatus.update();
     Screens.init();
+    AdmissionUtils.refreshAdmissionWindow();
     SplashScreen.init();
     DistrictPasswordScreen.init();
+    AdmissionOptionScreen.init();
     ZoneSearchScreen.init();
     EmisSearchScreen.init();
     AdminPanel.init();
