@@ -95,26 +95,58 @@ const DistrictPasswordScreen = {
 
 const AdmissionUtils = {
     bannerTimer: null,
+
+    safeDate(value) {
+        if (value === null || value === undefined || value === '') return null;
+        const date = new Date(value);
+        return isNaN(date.getTime()) ? null : date;
+    },
+
+    isValidWindow(windowData) {
+        if (!windowData || typeof windowData !== 'object') return false;
+        return Boolean(this.safeDate(windowData.openTimestamp) && this.safeDate(windowData.closeTimestamp));
+    },
+
+    isAdmissionWorkflowScreen() {
+        const allowedScreens = new Set([
+            'admission-zone-screen',
+            'admission-school-screen',
+            'admission-school-password-screen',
+            'admission-district-number-screen',
+            'admission-main-screen',
+            'admission-form-screen'
+        ]);
+        return allowedScreens.has(AppState.currentScreen);
+    },
+
     async refreshAdmissionWindow() {
-        if (typeof DataStore.getLatestAdmissionWindow === 'function') {
-            AppState.admissionWindow = DataStore.getLatestAdmissionWindow();
+        const latest = typeof DataStore.getLatestAdmissionWindow === 'function'
+            ? DataStore.getLatestAdmissionWindow()
+            : null;
+
+        if (!latest || !this.isValidWindow(latest)) {
+            AppState.admissionWindow = null;
+            this.updateBanner();
+            return;
         }
+
+        AppState.admissionWindow = latest;
         this.updateBanner();
     },
 
     isOpen() {
         if (!AppState.admissionWindow) return false;
         const now = new Date();
-        const openTs = AppState.admissionWindow.openTimestamp ? new Date(AppState.admissionWindow.openTimestamp) : null;
-        const closeTs = AppState.admissionWindow.closeTimestamp ? new Date(AppState.admissionWindow.closeTimestamp) : null;
+        const openTs = this.safeDate(AppState.admissionWindow.openTimestamp);
+        const closeTs = this.safeDate(AppState.admissionWindow.closeTimestamp);
         if (!openTs || !closeTs) return false;
-        return now >= openTs && now <= closeTs;
+        return openTs <= closeTs && now >= openTs && now <= closeTs;
     },
 
     updateBanner() {
         const banner = document.getElementById('admission-banner');
         if (!banner) return;
-        if (this.isOpen()) {
+        if (this.isAdmissionWorkflowScreen() && this.isOpen()) {
             banner.style.display = 'block';
             this.refreshCountdown();
             if (!this.bannerTimer) {
@@ -130,12 +162,15 @@ const AdmissionUtils = {
     },
 
     refreshCountdown() {
-        const closeTs = AppState.admissionWindow && AppState.admissionWindow.closeTimestamp ? new Date(AppState.admissionWindow.closeTimestamp) : null;
+        const closeTs = AppState.admissionWindow ? this.safeDate(AppState.admissionWindow.closeTimestamp) : null;
         const daysEl = document.getElementById('countdown-days');
         const hoursEl = document.getElementById('countdown-hours');
         const minutesEl = document.getElementById('countdown-minutes');
         const secondsEl = document.getElementById('countdown-seconds');
-        if (!closeTs || !daysEl || !hoursEl || !minutesEl || !secondsEl) return;
+        if (!closeTs || !daysEl || !hoursEl || !minutesEl || !secondsEl) {
+            this.updateBanner();
+            return;
+        }
         const now = new Date();
         const diff = closeTs - now;
         if (diff <= 0) {
@@ -2424,10 +2459,21 @@ const AdminPanel = {
 
     loadAdmissionWindow() {
         const latest = DataStore.getLatestAdmissionWindow();
-        if (!latest) return;
+        if (!latest || !AdmissionUtils.isValidWindow(latest)) {
+            AppState.admissionWindow = null;
+            AdmissionUtils.refreshAdmissionWindow();
+            return;
+        }
+
+        const openAt = AdmissionUtils.safeDate(latest.openTimestamp);
+        const closeAt = AdmissionUtils.safeDate(latest.closeTimestamp);
+        if (!openAt || !closeAt) {
+            AppState.admissionWindow = null;
+            AdmissionUtils.refreshAdmissionWindow();
+            return;
+        }
+
         AppState.admissionWindow = latest;
-        const openAt = new Date(latest.openTimestamp);
-        const closeAt = new Date(latest.closeTimestamp);
         const windowData = document.getElementById('admin-admission');
         if (windowData) {
             const openDateInput = document.getElementById('admission-open-date');
