@@ -91,6 +91,19 @@ const DataStore = {
         };
     },
 
+    _mapAdmissionExportFromDB(record) {
+        if (!record || typeof record !== 'object') return record;
+        return {
+            id: record.id,
+            schoolEmis: String(record.schoolEmis ?? record.schoolemis ?? '').trim(),
+            schoolName: String(record.schoolName ?? record.schoolname ?? '').trim(),
+            filename: String(record.filename ?? '').trim(),
+            fileBase64: String(record.fileBase64 ?? record.filebase64 ?? '').trim(),
+            totalLearners: parseInt(record.totalLearners ?? record.totallearners ?? 0, 10) || 0,
+            timestamp: record.timestamp ?? ''
+        };
+    },
+
     // =========================
     // LOCAL STORAGE
     // =========================
@@ -249,6 +262,10 @@ const DataStore = {
         );
     },
 
+    _cleanLin(lin) {
+        return String(lin || '').replace(/\D/g, '');
+    },
+
     async _safeSupabaseInsert(table, rows) {
         let insertRows = rows.map(row => this._stripEmptyStrings(this._stripNullValues(row)));
 
@@ -344,7 +361,7 @@ const DataStore = {
             this.uploadHistory = uploads.data || [];
             this.admissions = admissions.data || [];
             this.admissionWindow = admissionWindow.data || [];
-            this.admissionExports = admissionExports.data || [];
+            this.admissionExports = (admissionExports.data || []).map(this._mapAdmissionExportFromDB.bind(this));
             this.connectionStatus = 'Supabase connected';
             this._syncLocal('zone');
             this._syncLocal('school');
@@ -388,6 +405,54 @@ const DataStore = {
     getAdmissionsBySchool(emis) {
         if (!emis) return [];
         return this.admissions.filter(item => this._matchEMIS(item.emis, emis));
+    },
+
+    async getLatestAdmissionLin(emis, yearAdmission) {
+        const schoolEmis = this._cleanLin(emis);
+        const year = String(yearAdmission || '').trim().replace(/\D/g, '');
+        if (!schoolEmis || !year || year.length !== 4) return null;
+
+        let nextSequence = 1;
+
+        if (this.useSupabase && this.supabase) {
+            const result = await this.supabase
+                .from('admissions')
+                .select('lin')
+                .eq('emis', schoolEmis)
+                .eq('yearAdmission', parseInt(year, 10) || null)
+                .order('lin', { ascending: false })
+                .limit(1);
+
+            if (!result.error && Array.isArray(result.data) && result.data.length > 0) {
+                const latestLin = this._cleanLin(result.data[0].lin);
+                if (latestLin.length > 4) {
+                    const lastSeq = parseInt(latestLin.slice(-4), 10);
+                    if (!Number.isNaN(lastSeq)) {
+                        nextSequence = lastSeq + 1;
+                    }
+                }
+            }
+        } else {
+            const admissions = this.getAdmissionsBySchool(schoolEmis)
+                .filter(item => String(item.yearAdmission) === year)
+                .map(item => this._cleanLin(item.lin))
+                .filter(Boolean);
+
+            if (admissions.length > 0) {
+                const sorted = admissions
+                    .filter(l => l.length > 4)
+                    .sort((a, b) => (a > b ? -1 : a < b ? 1 : 0));
+                const lastLin = sorted[0];
+                if (lastLin) {
+                    const lastSeq = parseInt(lastLin.slice(-4), 10);
+                    if (!Number.isNaN(lastSeq)) {
+                        nextSequence = lastSeq + 1;
+                    }
+                }
+            }
+        }
+
+        return `${schoolEmis}${year}${String(nextSequence).padStart(4, '0')}`;
     },
 
     getLatestAdmissionWindow() {
@@ -582,48 +647,70 @@ const DataStore = {
             throw new Error('Required admission fields are missing');
         }
 
+        const lin = this._cleanLin(data.lin);
+        if (!lin) {
+            throw new Error('LIN must contain digits only');
+        }
+
         const record = {
-            emis: data.emis,
-            schoolName: data.schoolName,
-            zone: data.zone,
-            districtNumber: data.districtNumber,
-            yearAdmission: parseInt(data.yearAdmission, 10) || null,
-            dateOfAdmission: data.dateOfAdmission,
-            childName: data.childName,
-            sex: data.sex,
-            dateOfBirth: data.dateOfBirth,
-            ageYears: data.ageYears,
-            specialNeeds: data.specialNeeds || null,
-            originDistrict: data.originDistrict,
-            religiousDenomination: data.religiousDenomination,
-            orphanStatus: data.orphanStatus,
-            ecdAttendance: data.ecdAttendance,
-            cinNumber: data.cinNumber || null,
-            parentGuardianName: data.parentGuardianName,
-            parentGuardianPhone: data.parentGuardianPhone,
-            headTeacherName: data.headTeacherName,
-            headTeacherPhone: data.headTeacherPhone,
-            lin: data.lin,
-            zemisOfficerName: data.zemisOfficerName,
-            zemisOfficerDate: data.zemisOfficerDate,
-            zemisOfficerPhone: data.zemisOfficerPhone,
+            emis: this._cleanLin(data.emis),
+            schoolName: String(data.schoolName || '').trim() || null,
+            zone: String(data.zone || '').trim() || null,
+            districtNumber: String(data.districtNumber || '').trim() || null,
+            yearAdmission: parseInt(String(data.yearAdmission || '').replace(/\D/g, ''), 10) || null,
+            dateOfAdmission: data.dateOfAdmission || null,
+            childName: String(data.childName || '').trim() || null,
+            sex: String(data.sex || '').trim() || null,
+            dateOfBirth: data.dateOfBirth || null,
+            ageYears: parseInt(String(data.ageYears || '').replace(/\D/g, ''), 10) || null,
+            specialNeeds: data.specialNeeds ? String(data.specialNeeds).trim() : null,
+            originDistrict: String(data.originDistrict || '').trim() || null,
+            religiousDenomination: String(data.religiousDenomination || '').trim() || null,
+            orphanStatus: String(data.orphanStatus || '').trim() || null,
+            ecdAttendance: String(data.ecdAttendance || '').trim() || null,
+            cinNumber: data.cinNumber ? String(data.cinNumber).trim() : null,
+            parentGuardianName: String(data.parentGuardianName || '').trim() || null,
+            parentGuardianPhone: String(data.parentGuardianPhone || '').trim() || null,
+            headTeacherName: String(data.headTeacherName || '').trim() || null,
+            headTeacherPhone: String(data.headTeacherPhone || '').trim() || null,
+            lin,
+            zemisOfficerName: String(data.zemisOfficerName || '').trim() || null,
+            zemisOfficerDate: data.zemisOfficerDate || null,
+            zemisOfficerPhone: String(data.zemisOfficerPhone || '').trim() || null,
             timestamp: data.timestamp || new Date().toISOString()
         };
 
+        const payload = this._stripEmptyStrings(this._stripNullValues(record));
+        console.log('DataStore.addAdmission: submitting payload', payload);
+
         if (this.useSupabase) {
-            const result = await this._safeSupabaseInsert('admissions', [record]);
+            let result = await this._safeSupabaseInsert('admissions', [payload]);
+            if (result.error && /unique constraint "admissions_lin_key"|duplicate key value violates unique constraint/i.test(result.error.message)) {
+                console.warn('Duplicate LIN detected, regenerating LIN and retrying insert');
+                const nextLin = await this.getLatestAdmissionLin(payload.emis, payload.yearAdmission);
+                if (nextLin && nextLin !== payload.lin) {
+                    payload.lin = nextLin;
+                    console.log('DataStore.addAdmission: retrying with regenerated LIN', payload.lin);
+                    result = await this._safeSupabaseInsert('admissions', [payload]);
+                }
+            }
+
             if (result.error) {
+                console.error('DataStore.addAdmission: Supabase insert failed', result.error.message, result.error.details || null);
                 throw new Error(result.error.message);
             }
-            const saved = { id: result.data?.[0]?.id || Date.now(), ...record };
+
+            const saved = { id: result.data?.[0]?.id || Date.now(), ...payload };
             this.admissions.unshift(saved);
             this._syncLocal('admission');
+            console.log('DataStore.addAdmission: saved record', saved);
             return saved;
         }
 
         record.id = Date.now();
         this.admissions.unshift(record);
         this._syncLocal('admission');
+        console.log('DataStore.addAdmission: saved local record', record);
         return record;
     },
 
@@ -655,21 +742,33 @@ const DataStore = {
     },
 
     async addAdmissionExport(data) {
-        if (!data || !data.schoolEmis || !data.filename || !data.fileBase64) {
-            throw new Error('Admission export requires school EMIS, filename, and file data');
+        const schoolEmis = String(data?.schoolEmis || '').trim();
+        const filename = String(data?.filename || '').trim();
+        const fileBase64 = String(data?.fileBase64 || '').trim();
+        if (!schoolEmis || !filename || !fileBase64) {
+            throw new Error('Admission export requires non-empty school EMIS, filename, and file data');
         }
 
         const record = {
-            schoolEmis: data.schoolEmis,
-            schoolName: data.schoolName,
-            filename: data.filename,
-            fileBase64: data.fileBase64,
+            schoolEmis,
+            schoolName: String(data.schoolName || '').trim(),
+            filename,
+            fileBase64,
             totalLearners: parseInt(data.totalLearners, 10) || 0,
             timestamp: new Date().toISOString()
         };
 
+        const dbRecord = {
+            schoolemis: schoolEmis,
+            schoolname: String(data.schoolName || '').trim(),
+            filename,
+            filebase64: fileBase64,
+            totallearners: parseInt(data.totalLearners, 10) || 0,
+            timestamp: record.timestamp
+        };
+
         if (this.useSupabase) {
-            const result = await this._safeSupabaseInsert('admission_exports', [record]);
+            const result = await this._safeSupabaseInsert('admission_exports', [dbRecord]);
             if (result.error) {
                 throw new Error(result.error.message);
             }
@@ -806,7 +905,8 @@ const DataStore = {
             }
         }
 
-        this[config.array] = this[config.array].filter(item => item.id !== id);
+        // Normalize id comparison to handle string/number mismatches
+        this[config.array] = this[config.array].filter(item => String(item.id) !== String(id));
         this._syncLocal(type);
     },
 
@@ -846,6 +946,24 @@ const DataStore = {
         this[config.array] = this[config.array].map(item => item.id === id ? { ...item, ...changes } : item);
         this._syncLocal(type);
         return this[config.array].find(item => item.id === id);
+    },
+
+    getAdmissionExportsBySchool(schoolEmis) {
+        if (!schoolEmis) return [];
+        const s = String(schoolEmis).trim();
+        return this.admissionExports.filter(exp => {
+            const e = String(exp.schoolEmis || exp.schoolemis || '').trim();
+            return e === s;
+        }) || [];
+    },
+
+    getAdmissionExportById(id) {
+        const nid = isNaN(Number(id)) ? String(id) : Number(id);
+        return this.admissionExports.find(exp => exp.id === nid || String(exp.id) === String(id));
+    },
+
+    getCurrentSchoolEmis() {
+        return AppState.selectedAdmissionSchool ? AppState.selectedAdmissionSchool.emis : null;
     }
 };
 

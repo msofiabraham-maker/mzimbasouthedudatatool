@@ -1581,6 +1581,66 @@ body {
     color: rgba(255, 255, 255, 0.6);
 }
 
+/* Export Item Styles */
+.export-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    margin-bottom: 10px;
+    transition: all 0.3s ease;
+}
+
+.export-item:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.export-info {
+    flex: 1;
+    color: white;
+}
+
+.export-info h4 {
+    font-size: 1rem;
+    margin-bottom: 5px;
+}
+
+.export-info p {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin: 3px 0;
+}
+
+.export-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.export-actions .btn-download,
+.export-actions .btn-delete {
+    width: auto;
+    min-width: 100px;
+    padding: 8px 12px;
+}
+
+.btn-download {
+    background: rgba(34, 197, 94, 0.3);
+    border: 1px solid rgba(34, 197, 94, 0.5);
+    border-radius: 6px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.85rem;
+}
+
+.btn-download:hover {
+    background: rgba(34, 197, 94, 0.5);
+    transform: scale(1.05);
+}
+
 .searchable-select-input:focus {
     background: rgba(255, 255, 255, 0.3);
     box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);

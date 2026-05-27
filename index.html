@@ -145,6 +145,69 @@
             </div>
         </section>
 
+        <!-- LIN Generation Success Splash -->
+        <section id="lin-success-splash" class="screen modal" style="display: none;">
+            <div class="glass-box splash-box" style="text-align: center; padding: 40px;">
+                <div style="font-size: 48px; margin-bottom: 20px;">✅</div>
+                <h2>LIN Generated Successfully</h2>
+                <p id="lin-success-message" style="margin-top: 15px; font-size: 16px;"></p>
+            </div>
+        </section>
+
+        <!-- Learners School Select Screen (Users Section) -->
+        <section id="admission-learners-school-select-screen" class="screen">
+            <div class="glass-box admission-screen-content">
+                <h2>View Registered Learners</h2>
+                <p style="color: #666; margin-bottom: 20px;">Select a school to view all registered learners</p>
+                <div class="admission-form">
+                    <input type="text" id="learners-school-search" placeholder="Search School..." class="search-input">
+                </div>
+                <div id="learners-school-results" class="results-container"></div>
+                <div class="admission-dashboard-footer">
+                    <button id="back-to-admission-main" class="btn-secondary">Back</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Learners List Screen -->
+        <section id="admission-learners-list-screen" class="screen">
+            <div class="glass-box admission-screen-content">
+                <h2>Registered Learners</h2>
+                <p id="learners-school-name-display" class="school-display"></p>
+                <div id="learners-list-container" class="admission-list-grid"></div>
+                <div class="admission-dashboard-footer">
+                    <button id="back-to-learners-select" class="btn-secondary">Back</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Admin Admission School Select Screen -->
+        <section id="admin-admission-school-select-screen" class="screen">
+            <div class="glass-box admission-screen-content">
+                <h2>Admission Exports by School</h2>
+                <p style="color: #666; margin-bottom: 20px;">Select a school to view submitted Excel sheets</p>
+                <div class="admission-form">
+                    <input type="text" id="admin-admission-school-search" placeholder="Search School..." class="search-input">
+                </div>
+                <div id="admin-admission-school-results" class="results-container"></div>
+                <div class="admission-dashboard-footer">
+                    <button id="back-to-admin-panel" class="btn-secondary">Back</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Admin Admission Exports for School Screen -->
+        <section id="admin-admission-exports-screen" class="screen">
+            <div class="glass-box admission-screen-content">
+                <h2>Admission Exports</h2>
+                <p id="admin-exports-school-name-display" class="school-display"></p>
+                <div id="admin-exports-list-container" class="admin-list"></div>
+                <div class="admission-dashboard-footer">
+                    <button id="back-to-admin-admission-select" class="btn-secondary">Back</button>
+                </div>
+            </div>
+        </section>
+
         <section id="emis-search-screen" class="screen">
             <div class="glass-box">
                 <img src="./Icon.png" alt="Mzimba South EduData Hub Icon" class="system-icon screen-icon">

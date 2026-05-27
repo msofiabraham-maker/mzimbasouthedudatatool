@@ -16,6 +16,9 @@ const AppState = {
     recoveryEmail: Config.recoveryEmail
 };
 
+const sanitizeExportLin = (lin) => String(lin || '').replace(/\D/g, '');
+const isValidExportLin = (lin) => /^\d+$/.test(String(lin));
+
 const Screens = {
     screens: {},
     
@@ -35,22 +38,46 @@ const Screens = {
             'admission-district-number-screen': document.getElementById('admission-district-number-screen'),
             'admission-main-screen': document.getElementById('admission-main-screen'),
             'admission-form-screen': document.getElementById('admission-form-screen'),
+            'admission-learners-school-select-screen': document.getElementById('admission-learners-school-select-screen'),
+            'admission-learners-list-screen': document.getElementById('admission-learners-list-screen'),
             'admin-login-screen': document.getElementById('admin-login-screen'),
             'admin-dashboard-screen': document.getElementById('admin-dashboard-screen'),
-            'admin-recovery-screen': document.getElementById('admin-recovery-screen')
+            'admin-recovery-screen': document.getElementById('admin-recovery-screen'),
+            'admin-admission-school-select-screen': document.getElementById('admin-admission-school-select-screen'),
+            'admin-admission-exports-screen': document.getElementById('admin-admission-exports-screen')
         };
+        console.log('Screens.init: registered screens ->', Object.keys(this.screens));
     },
     
     show(screenName) {
-        if (!screenName || !this.screens[screenName]) {
-            console.warn('Screens.show: Invalid screen', screenName);
+        if (!screenName) {
+            console.warn('Screens.show: Invalid screen name', screenName);
             return;
         }
-        Object.values(this.screens).forEach(screen => {
-            if (screen && screen.classList) screen.classList.remove('active');
+
+        let screen = this.screens[screenName];
+        if (!screen) {
+            screen = document.getElementById(screenName);
+            if (screen) {
+                console.warn('Screens.show: screen was not registered; falling back to DOM element', screenName);
+                this.screens[screenName] = screen;
+            }
+        }
+
+        if (!screen) {
+            console.warn('Screens.show: Invalid screen', screenName);
+            try {
+                console.log('Screens.show: available screens ->', Object.keys(this.screens));
+            } catch (e) {
+                console.error('Screens.show: failed to list screens', e);
+            }
+            return;
+        }
+
+        Object.values(this.screens).forEach(screenEntry => {
+            if (screenEntry && screenEntry.classList) screenEntry.classList.remove('active');
         });
-        const screen = this.screens[screenName];
-        if (screen && screen.classList) {
+        if (screen.classList) {
             screen.classList.add('active');
             AppState.currentScreen = screenName;
             // Update admission status card when screen changes
@@ -388,33 +415,50 @@ const AdmissionMainScreen = {
 
         schoolDisplay.textContent = AppState.selectedAdmissionSchool ? `${AppState.selectedAdmissionSchool.name} (${AppState.selectedAdmissionSchool.emis})` : '';
         
-        // Hide registered learners initially
-        document.getElementById('admission-registered-learners').innerHTML = '';
-        document.getElementById('admission-registered-learners').style.display = 'none';
+        const registeredContainer = document.getElementById('admission-registered-learners');
+        if (registeredContainer) {
+            registeredContainer.innerHTML = '';
+            registeredContainer.style.display = 'none';
+        }
 
-        newAdmissionBtn.addEventListener('click', () => {
-            AppState.admissionFormStep = 1;
-            AppState.admissionFormData = {
-                district: AppState.selectedAdmissionZone,
-                school: AppState.selectedAdmissionSchool.name,
-                emis: AppState.selectedAdmissionSchool.emis
+        if (newAdmissionBtn) {
+            newAdmissionBtn.onclick = () => {
+                console.log('New Admission clicked');
+                AppState.admissionFormStep = 1;
+                AppState.admissionFormData = {
+                    district: AppState.selectedAdmissionZone,
+                    school: AppState.selectedAdmissionSchool.name,
+                    emis: AppState.selectedAdmissionSchool.emis
+                };
+                AdmissionFormScreen.init();
+                Screens.show('admission-form-screen');
             };
-            AdmissionFormScreen.init();
-            Screens.show('admission-form-screen');
-        });
+        }
 
-        showRegisteredBtn.addEventListener('click', () => {
-            this.toggleRegisteredLearners();
-        });
+        if (showRegisteredBtn) {
+            showRegisteredBtn.onclick = () => {
+                console.log('Show Registered Learners button clicked');
+                LearnersSelectionScreen.init();
+                Screens.show('admission-learners-school-select-screen');
+            };
+            showRegisteredBtn.setAttribute('role', 'button');
+            showRegisteredBtn.tabIndex = 0;
+        } else {
+            console.warn('AdmissionMainScreen.init: show-registered-btn not found');
+        }
 
-        submitBtn.addEventListener('click', () => {
-            const learners = DataStore.getAdmissionsBySchool(AppState.selectedAdmissionSchool.emis);
-            if (learners.length === 0) {
-                alert('No learners registered yet for this school. Please add learner admissions first.');
-                return;
-            }
-            AdminPanel.showSuccess('Learner records saved. Use the admin admission section to download Excel.');
-        });
+        if (submitBtn) {
+            submitBtn.onclick = () => {
+                console.log('Admission submit button clicked');
+                const learners = DataStore.getAdmissionsBySchool(AppState.selectedAdmissionSchool.emis);
+                if (learners.length === 0) {
+                    alert('No learners registered yet for this school. Please add learner admissions first.');
+                    return;
+                }
+                AdminPanel.showSuccess('Learner records saved. Use the admin admission section to download Excel.');
+            };
+        }
+
     },
 
     toggleRegisteredLearners() {
@@ -461,6 +505,354 @@ const AdmissionMainScreen = {
         });
     }
 };
+
+const LearnersSelectionScreen = {
+    init() {
+        console.log('LearnersSelectionScreen.init called');
+        const searchInput = document.getElementById('learners-school-search');
+        const resultsContainer = document.getElementById('learners-school-results');
+        const backBtn = document.getElementById('back-to-admission-main');
+
+        if (!searchInput || !resultsContainer || !backBtn) {
+            console.error('LearnersSelectionScreen.init: missing DOM elements', { searchInput, resultsContainer, backBtn });
+            return;
+        }
+
+        searchInput.value = '';
+        resultsContainer.innerHTML = '';
+        this.renderSchools();
+
+        searchInput.oninput = () => this.filterSchools();
+        backBtn.onclick = () => {
+            console.log('Back button clicked from learner school select screen');
+            AdmissionMainScreen.init();
+            Screens.show('admission-main-screen');
+        };
+    },
+
+    renderSchools() {
+        const schools = DataStore.getSchools();
+        const container = document.getElementById('learners-school-results');
+        if (!schools.length) {
+            container.innerHTML = '<p class="no-data">No schools available.</p>';
+            return;
+        }
+        container.innerHTML = schools.map(school => `
+            <div class="list-item">
+                <div class="list-item-info">
+                    <h4>${school.name}</h4>
+                    <p>EMIS: ${school.emis}</p>
+                </div>
+                <button class="btn-primary select-school-btn" data-emis="${school.emis}">Select</button>
+            </div>
+        `).join('');
+
+        this.attachSchoolSelectButtons(container);
+    },
+
+    attachSchoolSelectButtons(container) {
+        const buttons = container.querySelectorAll('.select-school-btn');
+        if (!buttons.length) {
+            console.warn('LearnersSelectionScreen.attachSchoolSelectButtons: no buttons found');
+            return;
+        }
+
+        buttons.forEach(btn => {
+            btn.onclick = () => {
+                const emis = btn.dataset.emis;
+                console.log('LearnersSelectionScreen: school selected', emis);
+                const school = DataStore.getSchoolByEMIS(emis);
+                if (school) {
+                    AppState.selectedAdmissionSchool = school;
+                    LearnersListScreen.init(school);
+                    Screens.show('admission-learners-list-screen');
+                } else {
+                    console.error('LearnersSelectionScreen: selected school not found', emis);
+                    container.innerHTML = '<p class="no-data">Selected school was not found.</p>';
+                }
+            };
+        });
+    },
+
+    filterSchools() {
+        const searchInput = document.getElementById('learners-school-search');
+        const container = document.getElementById('learners-school-results');
+        if (!searchInput || !container) {
+            console.error('LearnersSelectionScreen.filterSchools: missing DOM elements', { searchInput, container });
+            return;
+        }
+
+        const query = searchInput.value.toLowerCase().trim();
+        const schools = DataStore.getSchools();
+        console.log('LearnersSelectionScreen.filterSchools query:', query, 'schoolCount:', schools.length);
+
+        if (!query) {
+            this.renderSchools();
+            return;
+        }
+
+        const filtered = schools.filter(s => 
+            s.name.toLowerCase().includes(query) || 
+            String(s.emis).includes(query)
+        );
+
+        if (!filtered.length) {
+            container.innerHTML = '<p class="no-data">No schools found.</p>';
+            return;
+        }
+
+        container.innerHTML = filtered.map(school => `
+            <div class="list-item">
+                <div class="list-item-info">
+                    <h4>${school.name}</h4>
+                    <p>EMIS: ${school.emis}</p>
+                </div>
+                <button class="btn-primary select-school-btn" data-emis="${school.emis}">Select</button>
+            </div>
+        `).join('');
+
+        this.attachSchoolSelectButtons(container);
+    }
+};
+
+const LearnersListScreen = {
+    init(school) {
+        if (!school) return;
+        const schoolDisplay = document.getElementById('learners-school-name-display');
+        const container = document.getElementById('learners-list-container');
+        const backBtn = document.getElementById('back-to-learners-select');
+
+        schoolDisplay.textContent = `${school.name} (${school.emis})`;
+        
+        this.renderLearners(school.emis);
+
+        backBtn.addEventListener('click', () => {
+            LearnersSelectionScreen.init();
+            Screens.show('admission-learners-school-select-screen');
+        });
+    },
+
+    renderLearners(schoolEmis) {
+        const learners = DataStore.getAdmissionsBySchool(schoolEmis);
+        const container = document.getElementById('learners-list-container');
+
+        if (!learners.length) {
+            container.innerHTML = '<p class="no-data">No registered learners for this school.</p>';
+            return;
+        }
+
+        container.innerHTML = learners.map(learner => `
+            <div class="admission-learner-card">
+                <div class="admission-learner-details">
+                    <h4>${learner.childName}</h4>
+                    <p><strong>LIN:</strong> ${String(learner.lin || '').replace(/-/g, '')}</p>
+                    <p><strong>Admission Year:</strong> ${learner.yearAdmission}</p>
+                    <p><strong>Sex:</strong> ${learner.sex}</p>
+                </div>
+                <div class="admission-learner-actions">
+                    <button class="btn-delete" data-id="${learner.id}">Delete</button>
+                </div>
+            </div>
+        `).join('');
+
+        container.querySelectorAll('.btn-delete').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = parseInt(btn.dataset.id, 10);
+                if (!isNaN(id) && confirm('Delete this learner?')) {
+                    try {
+                        await DataStore.deleteRecord('admission', id);
+                        AdminPanel.showSuccess('Learner deleted successfully.');
+                        this.renderLearners(schoolEmis);
+                    } catch (err) {
+                        console.error(err);
+                        alert('Failed to delete learner. Please try again.');
+                    }
+                }
+            });
+        });
+    }
+};
+
+const AdminAdmissionSchoolSelect = {
+    init() {
+        const searchInput = document.getElementById('admin-admission-school-search');
+        const resultsContainer = document.getElementById('admin-admission-school-results');
+        const backBtn = document.getElementById('back-to-admin-panel');
+
+        searchInput.value = '';
+        resultsContainer.innerHTML = '';
+        this.renderSchools();
+
+        searchInput.addEventListener('input', () => this.filterSchools());
+        backBtn.addEventListener('click', () => {
+            AdminPanel.init();
+            Screens.show('admin-main-screen');
+        });
+    },
+
+    renderSchools() {
+        const schools = DataStore.getSchools();
+        const container = document.getElementById('admin-admission-school-results');
+        if (!schools.length) {
+            container.innerHTML = '<p class="no-data">No schools available.</p>';
+            return;
+        }
+        container.innerHTML = schools.map(school => `
+            <div class="list-item">
+                <div class="list-item-info">
+                    <h4>${school.name}</h4>
+                    <p>EMIS: ${school.emis}</p>
+                </div>
+                <button class="btn-primary select-school-btn" data-emis="${school.emis}">View Exports</button>
+            </div>
+        `).join('');
+
+        container.querySelectorAll('.select-school-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const emis = btn.dataset.emis;
+                const school = DataStore.getSchoolByEMIS(emis);
+                if (school) {
+                    AppState.selectedAdmissionSchool = school;
+                    AdminAdmissionExportsScreen.init(school);
+                    Screens.show('admin-admission-exports-screen');
+                }
+            });
+        });
+    },
+
+    filterSchools() {
+        const searchInput = document.getElementById('admin-admission-school-search');
+        const query = searchInput.value.toLowerCase().trim();
+        const container = document.getElementById('admin-admission-school-results');
+        const schools = DataStore.getSchools();
+
+        if (!query) {
+            this.renderSchools();
+            return;
+        }
+
+        const filtered = schools.filter(s => 
+            s.name.toLowerCase().includes(query) || 
+            String(s.emis).includes(query)
+        );
+
+        if (!filtered.length) {
+            container.innerHTML = '<p class="no-data">No schools found.</p>';
+            return;
+        }
+
+        container.innerHTML = filtered.map(school => `
+            <div class="list-item">
+                <div class="list-item-info">
+                    <h4>${school.name}</h4>
+                    <p>EMIS: ${school.emis}</p>
+                </div>
+                <button class="btn-primary select-school-btn" data-emis="${school.emis}">View Exports</button>
+            </div>
+        `).join('');
+
+        container.querySelectorAll('.select-school-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const emis = btn.dataset.emis;
+                const school = DataStore.getSchoolByEMIS(emis);
+                if (school) {
+                    AppState.selectedAdmissionSchool = school;
+                    AdminAdmissionExportsScreen.init(school);
+                    Screens.show('admin-admission-exports-screen');
+                }
+            });
+        });
+    }
+};
+
+const AdminAdmissionExportsScreen = {
+    init(school) {
+        if (!school) return;
+        AppState.selectedAdmissionSchool = school;
+        const schoolDisplay = document.getElementById('admin-exports-school-name-display');
+        const container = document.getElementById('admin-exports-list-container');
+        const backBtn = document.getElementById('back-to-admin-admission-select');
+
+        schoolDisplay.textContent = `${school.name} (${school.emis})`;
+        container.innerHTML = '';
+        this.renderExports(school.emis);
+
+        backBtn.addEventListener('click', () => {
+            AdminAdmissionSchoolSelect.init();
+            Screens.show('admin-admission-school-select-screen');
+        });
+    },
+
+
+    renderExports(schoolEmis) {
+        const exports = DataStore.getAdmissionExportsBySchool(schoolEmis);
+        const container = document.getElementById('admin-exports-list-container');
+
+        if (!exports.length) {
+            container.innerHTML = '<p class="no-data">No exports for this school.</p>';
+            return;
+        }
+
+        container.innerHTML = exports.map((exp, idx) => `
+            <div class="export-item">
+                <div class="export-info">
+                    <h4>${exp.filename || 'Export ' + (idx + 1)}</h4>
+                    <p>Learners: ${exp.totalLearners || exp.totallearners}</p>
+                    <p>Date: ${new Date(exp.timestamp || exp.created_at).toLocaleDateString()}</p>
+                </div>
+                <div class="export-actions">
+                    <button class="btn-download" data-id="${exp.id}" data-filename="${exp.filename}">Download</button>
+                    <button class="btn-delete" data-id="${exp.id}">Delete</button>
+                </div>
+            </div>
+        `).join('');
+
+        container.querySelectorAll('.btn-download').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.dataset.id;
+                const filename = btn.dataset.filename;
+                this.downloadExport(id, filename);
+            });
+        });
+
+        container.querySelectorAll('.btn-delete').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.dataset.id;
+                if (confirm('Delete this export? This action cannot be undone.')) {
+                    this.deleteExport(id);
+                }
+            });
+        });
+    },
+
+    async downloadExport(id, filename) {
+        const export_data = DataStore.getAdmissionExportById(id);
+        const fileBase64 = export_data ? (export_data.fileBase64 || export_data.filebase64) : null;
+        if (!export_data || !fileBase64) {
+            alert('Export file not found.');
+            return;
+        }
+
+        const link = document.createElement('a');
+        link.href = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${fileBase64}`;
+        link.download = filename || 'admission_export.xlsx';
+        link.click();
+    },
+
+    async deleteExport(id) {
+        try {
+            await DataStore.deleteRecord('admission_export', id);
+            AdminPanel.showSuccess('Export deleted successfully.');
+            const emis = AppState.selectedAdmissionSchool ? AppState.selectedAdmissionSchool.emis : null;
+            this.renderExports(emis);
+        } catch (err) {
+            alert('Failed to delete export. Please try again.');
+            console.error(err);
+        }
+    }
+};
+
+
 
 const AdmissionFormScreen = {
     init() {
@@ -513,11 +905,11 @@ const AdmissionFormScreen = {
                     <div class="admission-form-grid">
                         <div class="admission-form-field">
                             <label>School Year of Admission</label>
-                            <input type="number" id="form-yearAdmission" value="${data.yearAdmission || ''}" placeholder="2026">
+                            <input type="text" id="form-yearAdmission" value="${data.yearAdmission || new Date().getFullYear()}" readonly>
                         </div>
                         <div class="admission-form-field">
                             <label>Date of Admission</label>
-                            <input type="text" id="form-dateOfAdmission" value="${data.dateOfAdmission || ''}" placeholder="DD/MM/YYYY">
+                            <input type="date" id="form-dateOfAdmission" value="${data.dateOfAdmission || ''}">
                         </div>
                     </div>
                 `;
@@ -547,7 +939,7 @@ const AdmissionFormScreen = {
                     <div class="admission-form-grid">
                         <div class="admission-form-field">
                             <label>Date of Birth</label>
-                            <input type="text" id="form-dateOfBirth" value="${data.dateOfBirth || ''}" placeholder="DD/MM/YYYY">
+                            <input type="date" id="form-dateOfBirth" value="${data.dateOfBirth || ''}">
                         </div>
                         <div class="admission-form-field">
                             <label>Age (yrs)</label>
@@ -640,14 +1032,12 @@ const AdmissionFormScreen = {
                 `;
                 break;
             case 10:
-                const generatedLin = data.lin || this.generateLin();
-                AppState.admissionFormData.lin = generatedLin;
                 html = `
                     <h3>Step 10: LIN Generation</h3>
                     <div class="admission-form-grid" style="margin-top:20px;">
                         <div class="admission-form-field">
                             <label>Generated LIN</label>
-                            <input type="text" id="form-lin" value="${generatedLin}" readonly>
+                            <input type="text" id="form-lin" value="${data.lin || 'Generating...'}" readonly>
                         </div>
                     </div>
                 `;
@@ -752,7 +1142,10 @@ const AdmissionFormScreen = {
             setValue('headTeacherPhone', 'form-headTeacherPhone');
         }
         if (AppState.admissionFormStep === 10) {
-            setValue('lin', 'form-lin');
+            const linField = document.getElementById('form-lin');
+            if (linField) {
+                values.lin = linField.value.trim();
+            }
         }
         if (AppState.admissionFormStep === 11) {
             setValue('zemisOfficerName', 'form-zemisOfficerName');
@@ -770,13 +1163,13 @@ const AdmissionFormScreen = {
         }
         if (AppState.admissionFormStep === 2) {
             if (!data.yearAdmission || !/^\d{4}$/.test(data.yearAdmission)) return 'Enter a valid admission year';
-            if (!data.dateOfAdmission || !/^\d{2}\/\d{2}\/\d{4}$/.test(data.dateOfAdmission)) return 'Enter admission date in DD/MM/YYYY';
+            if (!data.dateOfAdmission || !/^\d{4}-\d{2}-\d{2}$/.test(data.dateOfAdmission)) return 'Enter admission date in YYYY-MM-DD';
         }
         if (AppState.admissionFormStep === 3) {
             if (!data.childName || !data.sex) return 'Enter child name and sex';
         }
         if (AppState.admissionFormStep === 4) {
-            if (!data.dateOfBirth || !/^\d{2}\/\d{2}\/\d{4}$/.test(data.dateOfBirth)) return 'Enter date of birth in DD/MM/YYYY';
+            if (!data.dateOfBirth || !/^\d{4}-\d{2}-\d{2}$/.test(data.dateOfBirth)) return 'Enter date of birth in YYYY-MM-DD';
             if (!data.ageYears || parseInt(data.ageYears, 10) <= 0) return 'Enter a valid age';
         }
         if (AppState.admissionFormStep === 5) {
@@ -801,14 +1194,12 @@ const AdmissionFormScreen = {
         return '';
     },
 
-    generateLin() {
+    async generateLin() {
         const data = AppState.admissionFormData || {};
-        const year = String(data.yearAdmission || '').padStart(4, '0');
-        const district = String(AppState.admissionDistrictNumber || '').padStart(2, '0');
-        const emis = String(data.emis || AppState.selectedAdmissionSchool.emis || '').padStart(5, '0');
-        const existingCount = DataStore.getAdmissionsBySchool(AppState.selectedAdmissionSchool.emis).length;
-        const sequence = String(existingCount + 1).padStart(3, '0');
-        return `${year}${district}${emis}${sequence}`;
+        const year = String(data.yearAdmission || '').trim();
+        const emis = String(data.emis || AppState.selectedAdmissionSchool?.emis || '').trim();
+        const nextLin = await DataStore.getLatestAdmissionLin(emis, year);
+        return String(nextLin || '').replace(/\D/g, '');
     },
 
     async nextStep() {
@@ -817,7 +1208,31 @@ const AdmissionFormScreen = {
         errorDisplay.textContent = '';
 
         if (AppState.admissionFormStep === 10) {
-            AppState.admissionFormData.lin = this.generateLin();
+            const splash = document.getElementById('lin-success-splash');
+            if (splash) {
+                const msgEl = document.getElementById('lin-success-message');
+                const headingEl = splash.querySelector('h2');
+                if (headingEl) headingEl.textContent = '';
+                if (msgEl) msgEl.textContent = 'GENERATING LIN PLEASE WAIT...';
+                splash.style.display = 'flex';
+
+                await new Promise(res => setTimeout(res, 3000));
+
+                const generatedLin = await this.generateLin();
+                AppState.admissionFormData.lin = String(generatedLin || '').replace(/\D/g, '');
+
+                const linField = document.getElementById('form-lin');
+                if (linField) linField.value = AppState.admissionFormData.lin || '';
+
+                if (headingEl) headingEl.textContent = 'LIN GENERATED SUCCESSFULLY';
+                if (msgEl) msgEl.textContent = '';
+                await new Promise(res => setTimeout(res, 2000));
+
+                splash.style.display = 'none';
+                AppState.admissionFormStep = 11;
+                this.renderStep();
+                return;
+            }
         }
 
         const validationError = this.validateStep();
@@ -826,17 +1241,13 @@ const AdmissionFormScreen = {
             return;
         }
 
-        if (AppState.admissionFormStep === 10) {
-            AppState.admissionFormData.lin = this.generateLin();
-        }
-
         if (AppState.admissionFormStep === 11) {
             try {
                 await this.submitAdmission();
                 return;
             } catch (err) {
                 errorDisplay.textContent = 'Failed to submit admission. Please try again.';
-                console.error(err);
+                console.error('AdmissionFormScreen.submitAdmission failed:', err);
                 return;
             }
         }
@@ -855,9 +1266,9 @@ const AdmissionFormScreen = {
     async submitAdmission() {
         this.collectValues();
         const record = {
-            emis: AppState.selectedAdmissionSchool.emis,
-            schoolName: AppState.selectedAdmissionSchool.name,
-            zone: AppState.selectedAdmissionSchool.zone,
+            emis: AppState.selectedAdmissionSchool?.emis,
+            schoolName: AppState.selectedAdmissionSchool?.name,
+            zone: AppState.selectedAdmissionSchool?.zone,
             districtNumber: AppState.admissionDistrictNumber,
             yearAdmission: AppState.admissionFormData.yearAdmission,
             dateOfAdmission: AppState.admissionFormData.dateOfAdmission,
@@ -875,14 +1286,16 @@ const AdmissionFormScreen = {
             parentGuardianPhone: AppState.admissionFormData.parentGuardianPhone,
             headTeacherName: AppState.admissionFormData.headTeacherName,
             headTeacherPhone: AppState.admissionFormData.headTeacherPhone,
-            lin: AppState.admissionFormData.lin,
+            lin: String(AppState.admissionFormData.lin || '').replace(/\D/g, ''),
             zemisOfficerName: AppState.admissionFormData.zemisOfficerName,
             zemisOfficerDate: AppState.admissionFormData.zemisOfficerDate,
             zemisOfficerPhone: AppState.admissionFormData.zemisOfficerPhone,
             timestamp: new Date().toISOString()
         };
 
-        await DataStore.addAdmission(record);
+        console.log('AdmissionFormScreen.submitAdmission payload:', record);
+        const saved = await DataStore.addAdmission(record);
+        console.log('AdmissionFormScreen.submitAdmission result:', saved);
         AdminPanel.showSuccess('Admission successfully saved.');
         Screens.show('admission-main-screen');
         AdmissionMainScreen.init();
@@ -893,31 +1306,36 @@ const AdmissionFormScreen = {
         if (!admissions.length) throw new Error('No admissions available');
         const rows = admissions.map(item => ({
             'School Name': item.schoolName,
-            'EMIS': item.emis,
-            'Zone': item.zone,
-            'District Number': item.districtNumber,
-            'Admission Year': item.yearAdmission,
-            'Date of Admission': item.dateOfAdmission,
             'Child Name': item.childName,
             'Sex': item.sex,
+            'Admission Year': item.yearAdmission,
+            'District Number': item.districtNumber,
+            'LIN': sanitizeExportLin(item.lin),
             'Date of Birth': item.dateOfBirth,
             'Age (yrs)': item.ageYears,
-            'Special Needs': item.specialNeeds || '',
-            'District of Origin': item.originDistrict,
-            'Religious Denomination': item.religiousDenomination,
-            'Orphan Status': item.orphanStatus,
+            'Date of Admission': item.dateOfAdmission,
             'ECD Attendance': item.ecdAttendance,
             'CIN': item.cinNumber || '',
+            'Religious Denomination': item.religiousDenomination,
+            'Orphan Status': item.orphanStatus,
+            'Special Needs': item.specialNeeds || '',
             'Parent/Guardian Name': item.parentGuardianName,
             'Parent/Guardian Phone': item.parentGuardianPhone,
             'Head Teacher Name': item.headTeacherName,
             'Head Teacher Phone': item.headTeacherPhone,
-            'LIN': item.lin,
             'zEMIS Officer Name': item.zemisOfficerName,
-            'zEMIS Officer Date': item.zemisOfficerDate,
             'zEMIS Officer Phone': item.zemisOfficerPhone,
+            'Zone': item.zone,
+            'District of Origin': item.originDistrict,
+            'zEMIS Officer Date': item.zemisOfficerDate,
             'Timestamp': item.timestamp
         }));
+
+        const invalidRow = rows.find(row => !isValidExportLin(row.LIN));
+        if (invalidRow) {
+            AdminPanel.showSuccess('Cannot export Excel: LIN contains invalid symbols.');
+            return;
+        }
 
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.json_to_sheet(rows);
@@ -926,7 +1344,7 @@ const AdmissionFormScreen = {
         const filename = `${AppState.selectedAdmissionSchool.name.replace(/[^a-zA-Z0-9]/g, '_')}_Admissions.xlsx`;
 
         await DataStore.addAdmissionExport({
-            schoolEmis: AppState.selectedAdmissionSchool.emis,
+            schoolEmis: String(AppState.selectedAdmissionSchool.emis).trim(),
             schoolName: AppState.selectedAdmissionSchool.name,
             filename,
             fileBase64: wbout,
@@ -1733,16 +2151,8 @@ const AdminPanel = {
         const admissionAccessBtn = document.getElementById('admin-admission-btn');
         if (admissionAccessBtn) {
             admissionAccessBtn.addEventListener('click', () => {
-                tabs.forEach(t => t.classList.remove('active'));
-                panels.forEach(p => p.classList.remove('active'));
-                const tab = document.querySelector('.admin-tab[data-tab="admission"]');
-                if (tab) {
-                    tab.classList.add('active');
-                }
-                const panel = document.getElementById('admin-admission');
-                if (panel) {
-                    panel.classList.add('active');
-                }
+                AdminAdmissionSchoolSelect.init();
+                Screens.show('admin-admission-school-select-screen');
             });
         }
         
@@ -2639,39 +3049,47 @@ const AdminPanel = {
         list.innerHTML = summaryHtml || '<p class="no-data">No saved learner records available.</p>';
         list.querySelectorAll('.btn-primary').forEach(button => {
             button.addEventListener('click', async () => {
-                const schoolEmis = button.dataset.emis;
-                const school = DataStore.getSchoolByEMIS(schoolEmis);
+                const school = DataStore.getSchoolByEMIS(button.dataset.emis || '');
+                const schoolEmis = String(school?.emis || button.dataset.emis || '').trim();
                 const learners = DataStore.getAdmissionsBySchool(schoolEmis);
-                if (!school || learners.length === 0) return;
+                if (!schoolEmis || !school || learners.length === 0) {
+                    console.error('Missing or invalid school EMIS for export', { schoolEmis, school });
+                    AdminPanel.showSuccess('Failed to generate Excel. Invalid school selection.');
+                    return;
+                }
                 try {
                     await AdminPanel.showLoading('Generating Excel. Please wait...');
                     const rows = learners.map(item => ({
                         'School Name': item.schoolName,
-                        'EMIS': item.emis,
-                        'Zone': item.zone,
-                        'District Number': item.districtNumber,
-                        'Admission Year': item.yearAdmission,
-                        'Date of Admission': item.dateOfAdmission,
                         'Child Name': item.childName,
                         'Sex': item.sex,
+                        'Admission Year': item.yearAdmission,
+                        'District Number': item.districtNumber,
+                        'LIN': sanitizeExportLin(item.lin),
                         'Date of Birth': item.dateOfBirth,
                         'Age (yrs)': item.ageYears,
-                        'Special Needs': item.specialNeeds || '',
-                        'District of Origin': item.originDistrict,
-                        'Religious Denomination': item.religiousDenomination,
-                        'Orphan Status': item.orphanStatus,
+                        'Date of Admission': item.dateOfAdmission,
                         'ECD Attendance': item.ecdAttendance,
                         'CIN': item.cinNumber || '',
+                        'Religious Denomination': item.religiousDenomination,
+                        'Orphan Status': item.orphanStatus,
+                        'Special Needs': item.specialNeeds || '',
                         'Parent/Guardian Name': item.parentGuardianName,
                         'Parent/Guardian Phone': item.parentGuardianPhone,
                         'Head Teacher Name': item.headTeacherName,
                         'Head Teacher Phone': item.headTeacherPhone,
-                        'LIN': item.lin,
                         'zEMIS Officer Name': item.zemisOfficerName,
-                        'zEMIS Officer Date': item.zemisOfficerDate,
                         'zEMIS Officer Phone': item.zemisOfficerPhone,
+                        'Zone': item.zone,
+                        'District of Origin': item.originDistrict,
+                        'zEMIS Officer Date': item.zemisOfficerDate,
                         'Timestamp': item.timestamp
                     }));
+                    const invalidRow = rows.find(row => !isValidExportLin(row.LIN));
+                    if (invalidRow) {
+                        AdminPanel.showSuccess('Cannot export Excel: LIN contains invalid symbols.');
+                        return;
+                    }
                     const wb = XLSX.utils.book_new();
                     const ws = XLSX.utils.json_to_sheet(rows);
                     XLSX.utils.book_append_sheet(wb, ws, 'Admissions');
