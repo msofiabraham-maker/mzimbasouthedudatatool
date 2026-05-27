@@ -19,6 +19,29 @@ const AppState = {
 const sanitizeExportLin = (lin) => String(lin || '').replace(/\D/g, '');
 const isValidExportLin = (lin) => /^\d+$/.test(String(lin));
 
+const formatAdmissionLin = (admission) => {
+    if (!admission || typeof admission !== 'object') return '';
+    const year = String(admission.yearAdmission || '').replace(/\D/g, '');
+    const district = String(admission.districtNumber || '').replace(/\D/g, '');
+    const emis = String(admission.emis || '').replace(/\D/g, '');
+    const rawLin = String(admission.lin || '').replace(/\D/g, '');
+    const sequence = String(rawLin.slice(-4)).padStart(4, '0');
+
+    if (!year || year.length !== 4 || !district || !emis || sequence.length !== 4) {
+        return sanitizeExportLin(admission.lin);
+    }
+
+    let emisCode = emis;
+    if (district && emis.startsWith(district)) {
+        emisCode = emis.slice(district.length);
+    }
+    if (!emisCode) {
+        emisCode = emis;
+    }
+
+    return `${year}${district}${emisCode}${sequence}`;
+};
+
 const Screens = {
     screens: {},
     
@@ -1198,7 +1221,8 @@ const AdmissionFormScreen = {
         const data = AppState.admissionFormData || {};
         const year = String(data.yearAdmission || '').trim();
         const emis = String(data.emis || AppState.selectedAdmissionSchool?.emis || '').trim();
-        const nextLin = await DataStore.getLatestAdmissionLin(emis, year);
+        const districtNumber = String(AppState.admissionDistrictNumber || data.district || data.districtNumber || '').trim();
+        const nextLin = await DataStore.getLatestAdmissionLin(emis, year, districtNumber);
         return String(nextLin || '').replace(/\D/g, '');
     },
 
@@ -1310,7 +1334,7 @@ const AdmissionFormScreen = {
             'Sex': item.sex,
             'Admission Year': item.yearAdmission,
             'District Number': item.districtNumber,
-            'LIN': sanitizeExportLin(item.lin),
+            'LIN': formatAdmissionLin(item),
             'Date of Birth': item.dateOfBirth,
             'Age (yrs)': item.ageYears,
             'Date of Admission': item.dateOfAdmission,
@@ -3001,8 +3025,17 @@ const AdminPanel = {
                     const id = parseInt(btn.dataset.id, 10);
                     const record = DataStore.getAdmissionExports().find(r => r.id === id);
                     if (!record) return;
+
+                    const fileBase64 = String(record.fileBase64 || record.filebase64 || '').trim();
+                    const filename = String(record.filename || '').trim();
+                    if (!fileBase64 || !filename) {
+                        console.error('AdminPanel.loadAdmissionExports: export record missing file data', { id, record });
+                        AdminPanel.showSuccess('Download failed: saved export file data is missing. Regenerate the file.');
+                        return;
+                    }
+
                     try {
-                        await AdminPanel.downloadBase64File(record.fileBase64, record.filename);
+                        await AdminPanel.downloadBase64File(fileBase64, filename);
                         AdminPanel.showSuccess('Download started');
                     } catch (err) {
                         console.error(err);
@@ -3065,7 +3098,7 @@ const AdminPanel = {
                         'Sex': item.sex,
                         'Admission Year': item.yearAdmission,
                         'District Number': item.districtNumber,
-                        'LIN': sanitizeExportLin(item.lin),
+                        'LIN': formatAdmissionLin(item),
                         'Date of Birth': item.dateOfBirth,
                         'Age (yrs)': item.ageYears,
                         'Date of Admission': item.dateOfAdmission,

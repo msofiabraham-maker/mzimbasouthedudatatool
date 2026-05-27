@@ -407,10 +407,11 @@ const DataStore = {
         return this.admissions.filter(item => this._matchEMIS(item.emis, emis));
     },
 
-    async getLatestAdmissionLin(emis, yearAdmission) {
+    async getLatestAdmissionLin(emis, yearAdmission, districtNumber) {
         const schoolEmis = this._cleanLin(emis);
         const year = String(yearAdmission || '').trim().replace(/\D/g, '');
-        if (!schoolEmis || !year || year.length !== 4) return null;
+        const district = String(districtNumber || '').replace(/\D/g, '');
+        if (!schoolEmis || !district || !year || year.length !== 4) return null;
 
         let nextSequence = 1;
 
@@ -452,7 +453,8 @@ const DataStore = {
             }
         }
 
-        return `${schoolEmis}${year}${String(nextSequence).padStart(4, '0')}`;
+        const emisCode = schoolEmis.startsWith(district) ? schoolEmis.slice(district.length) : schoolEmis;
+        return `${year}${district}${emisCode}${String(nextSequence).padStart(4, '0')}`;
     },
 
     getLatestAdmissionWindow() {
@@ -759,10 +761,14 @@ const DataStore = {
         };
 
         const dbRecord = {
+            schoolEmis,
             schoolemis: schoolEmis,
+            schoolName: String(data.schoolName || '').trim(),
             schoolname: String(data.schoolName || '').trim(),
             filename,
+            fileBase64: fileBase64,
             filebase64: fileBase64,
+            totalLearners: parseInt(data.totalLearners, 10) || 0,
             totallearners: parseInt(data.totalLearners, 10) || 0,
             timestamp: record.timestamp
         };
